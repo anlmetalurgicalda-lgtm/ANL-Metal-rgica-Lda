@@ -111,7 +111,7 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
             <button
               onClick={() => {
                 setAExportar(true);
-                exportarRelatorioExcel(linhas, "relatorio-ponto-anl").finally(() => setAExportar(false));
+                exportarRelatorioExcel(linhas, "relatorio-ponto-anl", dataInicio, dataFim).finally(() => setAExportar(false));
               }}
               disabled={linhas.length === 0 || aExportar}
               className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
