@@ -5,7 +5,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { Funcionario, LinhaRelatorioPonto, PontoTipo } from "@/lib/types";
 import { dataLisboaISO } from "@/lib/timezone";
-import { User, LogIn, LogOut, CalendarOff, Ban, CheckCheck } from "lucide-react";
+import { User, LogIn, LogOut, CalendarOff, Ban, CheckCheck, RotateCcw } from "lucide-react";
 import ForcarPontoModal from "./ForcarPontoModal";
 
 interface LinhaGestao {
@@ -132,6 +132,35 @@ export default function GestaoPontoManager() {
     carregar();
   }
 
+  async function voltarAoNormal() {
+    if (selecionados.size === 0) {
+      setMensagem({ tipo: "erro", texto: "Selecione pelo menos um colaborador." });
+      return;
+    }
+
+    if (!window.confirm(`Repor o estado normal de ${selecionados.size} colaborador(es) nesta data? Isto remove entradas, saídas, faltas ou folgas registadas.`)) {
+      return;
+    }
+
+    setAProcessar(true);
+    setMensagem(null);
+
+    const { error } = await supabase.rpc("limpar_ponto_admin", {
+      p_funcionario_ids: Array.from(selecionados),
+      p_data: data,
+    });
+
+    setAProcessar(false);
+
+    if (error) {
+      setMensagem({ tipo: "erro", texto: "Não foi possível repor o estado normal." });
+      return;
+    }
+
+    setMensagem({ tipo: "sucesso", texto: `Estado normal reposto para ${selecionados.size} colaborador(es).` });
+    carregar();
+  }
+
   const totalFalta = linhas.filter((l) => l.situacao === "Falta").length;
   const totalSemRegisto = linhas.filter((l) => l.situacao === "Sem registo").length;
 
@@ -179,6 +208,13 @@ export default function GestaoPontoManager() {
             className="flex items-center gap-1.5 rounded-lg bg-slate-600 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
           >
             <CalendarOff size={16} /> Marcar Folga
+          </button>
+          <button
+            disabled={aProcessar}
+            onClick={voltarAoNormal}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            <RotateCcw size={16} /> Voltar ao Normal
           </button>
         </div>
       </div>

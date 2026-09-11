@@ -454,6 +454,18 @@ begin
   for v_funcionario in
     select * from public.funcionarios where id = any(p_funcionario_ids) and ativo = true
   loop
+    -- Remove registos incompatíveis com o novo tipo (ex.: mudar de "folga" para
+    -- "entrada", ou de "falta" para "folga") para não colidir com o trigger
+    -- trg_validar_registo_ponto, que impede entrada/saida coexistirem com falta/folga.
+    if p_tipo in ('entrada', 'saida') then
+      delete from public.registos_ponto
+      where funcionario_id = v_funcionario.id and data = p_data and tipo in ('falta', 'folga');
+    else
+      delete from public.registos_ponto
+      where funcionario_id = v_funcionario.id and data = p_data
+        and tipo in ('entrada', 'saida', 'falta', 'folga') and tipo <> p_tipo;
+    end if;
+
     if p_tipo in ('falta', 'folga') then
       v_timestamp := null;
       v_status := null;
@@ -493,6 +505,34 @@ $$;
 
 revoke all on function public.forcar_ponto_admin(uuid[], ponto_tipo, date, boolean, time, text) from public;
 grant execute on function public.forcar_ponto_admin(uuid[], ponto_tipo, date, boolean, time, text) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 12-B. FUNÇÃO RPC: limpar_ponto_admin ("Voltar ao normal")
+--     Remove todos os registos (entrada/saida/falta/folga) de um dia para os
+--     colaboradores indicados, repondo o estado para "Sem registo" — como se
+--     nenhuma ação tivesse sido feita nesse dia.
+-- ---------------------------------------------------------------------------
+create or replace function public.limpar_ponto_admin(
+  p_funcionario_ids uuid[],
+  p_data date
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Apenas administradores podem limpar registos de ponto.';
+  end if;
+
+  delete from public.registos_ponto
+  where funcionario_id = any(p_funcionario_ids) and data = p_data;
+end;
+$$;
+
+revoke all on function public.limpar_ponto_admin(uuid[], date) from public;
+grant execute on function public.limpar_ponto_admin(uuid[], date) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 13. FUNÇÃO RPC: aprovar_foto_funcionario / rejeitar_foto_funcionario
