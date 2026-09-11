@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Halo que aquece a logo da ANL (laranja da marca, sem competir com o azul da UI) */
+.logo-halo {
+  background: radial-gradient(circle at center, rgba(245, 130, 32, 0.45) 0%, rgba(245, 130, 32, 0.12) 45%, transparent 70%);
+}
+
+/* Brilho diagonal que percorre a logo periodicamente */
+.logo-sheen {
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+}
+
+html {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background-color: #f4f6fb;
+  color: #1a1f36;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c3cbe0;
+  border-radius: 4px;
+}
