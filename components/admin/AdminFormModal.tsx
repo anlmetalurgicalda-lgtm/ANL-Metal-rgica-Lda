@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { normalizarNomeUtilizador } from "@/lib/auth";
 import type { Funcionario } from "@/lib/types";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, UserCircle2 } from "lucide-react";
 
 interface Props {
   onFechar: () => void;
@@ -19,6 +20,7 @@ export default function AdminFormModal({ onFechar, onCriado }: Props) {
   const [nomeUtilizador, setNomeUtilizador] = useState("");
   const [nomeUtilizadorEditadoManualmente, setNomeUtilizadorEditadoManualmente] = useState(false);
   const [senha, setSenha] = useState("");
+  const [foto, setFoto] = useState<File | null>(null);
   const [aGuardar, setAGuardar] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -67,13 +69,27 @@ export default function AdminFormModal({ onFechar, onCriado }: Props) {
     });
 
     const resultado = await resposta.json();
-    setAGuardar(false);
 
     if (!resposta.ok) {
+      setAGuardar(false);
       setErro(resultado.erro ?? "Não foi possível criar o administrador.");
       return;
     }
 
+    if (foto && resultado.id) {
+      const extensao = foto.name.split(".").pop() || "jpg";
+      const caminho = `admins/${resultado.id}/${Date.now()}.${extensao}`;
+      const { error: erroUpload } = await supabase.storage
+        .from("fotos-funcionarios")
+        .upload(caminho, foto, { upsert: true });
+
+      if (!erroUpload) {
+        const { data } = supabase.storage.from("fotos-funcionarios").getPublicUrl(caminho);
+        await supabase.from("admins").update({ foto_url: data.publicUrl }).eq("id", resultado.id);
+      }
+    }
+
+    setAGuardar(false);
     onCriado();
   }
 
@@ -85,6 +101,27 @@ export default function AdminFormModal({ onFechar, onCriado }: Props) {
           <button onClick={onFechar} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100">
             <X size={20} />
           </button>
+        </div>
+
+        <div className="mb-4 flex items-center gap-4">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-slate-100">
+            {foto ? (
+              <Image src={URL.createObjectURL(foto)} alt="Pré-visualização" fill sizes="64px" className="object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-slate-400">
+                <UserCircle2 size={32} />
+              </div>
+            )}
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-sm font-medium text-slate-700">Foto de perfil (opcional)</label>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+              className="w-full text-sm"
+            />
+          </div>
         </div>
 
         <label className="mb-1 block text-sm font-medium text-slate-700">

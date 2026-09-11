@@ -5,7 +5,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { Admin } from "@/lib/types";
 import { formatarDataHoraLisboa } from "@/lib/timezone";
-import { Plus, ShieldCheck, UserCircle2, Pencil } from "lucide-react";
+import { Plus, ShieldCheck, UserCircle2, Pencil, Trash2, Loader2 } from "lucide-react";
 import AdminFormModal from "./AdminFormModal";
 import AdminEditModal from "./AdminEditModal";
 
@@ -15,6 +15,8 @@ export default function AdministradoresManager() {
   const [aCarregar, setACarregar] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Admin | null>(null);
+  const [meuId, setMeuId] = useState<string | null>(null);
+  const [aEliminar, setAEliminar] = useState<string | null>(null);
 
   async function carregar() {
     setACarregar(true);
@@ -29,8 +31,27 @@ export default function AdministradoresManager() {
 
   useEffect(() => {
     carregar();
+    supabase.auth.getUser().then(({ data }) => setMeuId(data.user?.id ?? null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function eliminar(a: Admin) {
+    if (!window.confirm(`Eliminar o administrador "${a.nome}"? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    setAEliminar(a.id);
+    const resposta = await fetch(`/api/admin/administradores/${a.id}`, { method: "DELETE" });
+    const resultado = await resposta.json();
+    setAEliminar(null);
+
+    if (!resposta.ok) {
+      alert(resultado.erro ?? "Não foi possível eliminar o administrador.");
+      return;
+    }
+
+    carregar();
+  }
 
   return (
     <div>
@@ -97,13 +118,25 @@ export default function AdministradoresManager() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => setEditando(a)}
-                    className="rounded p-1.5 text-slate-500 hover:bg-slate-100"
-                    title="Editar"
-                  >
-                    <Pencil size={16} />
-                  </button>
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => setEditando(a)}
+                      className="rounded p-1.5 text-slate-500 hover:bg-slate-100"
+                      title="Editar"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    {a.id !== meuId && (
+                      <button
+                        onClick={() => eliminar(a)}
+                        disabled={aEliminar === a.id}
+                        className="rounded p-1.5 text-rose-500 hover:bg-rose-50 disabled:opacity-60"
+                        title="Eliminar"
+                      >
+                        {aEliminar === a.id ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

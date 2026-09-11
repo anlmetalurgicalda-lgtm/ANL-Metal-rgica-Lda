@@ -69,5 +69,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: "Não foi possível registar o administrador." }, { status: 400 });
   }
 
-  return NextResponse.json({ sucesso: true });
+  return NextResponse.json({ sucesso: true, id: novoUtilizador.user.id });
 }
