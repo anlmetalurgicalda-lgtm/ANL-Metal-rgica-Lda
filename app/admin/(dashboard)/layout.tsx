@@ -1,5 +1,4 @@
-import NotificacoesPanel from "@/components/admin/NotificacoesPanel";
-import Sidebar from "@/components/admin/Sidebar";
+import AdminShell from "@/components/admin/AdminShell";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -14,15 +13,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     adminAtual = data;
   }
 
-  return (
-    <div className="min-h-screen bg-slate-100">
-      <Sidebar adminAtual={adminAtual} />
-      <div className="pl-64">
-        <header className="sticky top-0 z-30 flex items-center justify-end border-b border-slate-200 bg-white/80 px-8 py-3 backdrop-blur">
-          <NotificacoesPanel />
-        </header>
-        <main className="mx-auto max-w-6xl px-8 py-8">{children}</main>
-      </div>
-    </div>
-  );
+  return <AdminShell adminAtual={adminAtual}>{children}</AdminShell>;
 }

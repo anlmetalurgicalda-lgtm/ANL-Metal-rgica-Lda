@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Users, Clock, FileBarChart, LayoutDashboard, ShieldCheck, UserCircle2 } from "lucide-react";
+import { Users, Clock, FileBarChart, LayoutDashboard, ShieldCheck, UserCircle2, X } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 
 const LINKS = [
@@ -16,13 +16,19 @@ const LINKS = [
 
 interface Props {
   adminAtual: { nome: string; foto_url: string | null } | null;
+  aberta: boolean;
+  onFechar: () => void;
 }
 
-export default function Sidebar({ adminAtual }: Props) {
+export default function Sidebar({ adminAtual, aberta, onFechar }: Props) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-slate-950">
+    <aside
+      className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-slate-950 transition-transform duration-200 lg:translate-x-0 ${
+        aberta ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
       <div className="flex items-center gap-3 px-5 py-6">
         <div className="relative">
           <span className="logo-halo pointer-events-none absolute -inset-3 rounded-2xl blur-lg" />
@@ -30,10 +36,17 @@ export default function Sidebar({ adminAtual }: Props) {
             <Image src="/logo-icon.png" alt="ANL" width={48} height={48} className="h-full w-auto object-contain" />
           </div>
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white">ANL Metalúrgica</p>
           <p className="text-xs text-slate-400">Controlo de Ponto</p>
         </div>
+        <button
+          onClick={onFechar}
+          className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
+          aria-label="Fechar menu"
+        >
+          <X size={20} />
+        </button>
       </div>
 
       <nav className="flex-1 space-y-1 px-3">
@@ -43,6 +56,7 @@ export default function Sidebar({ adminAtual }: Props) {
             <Link
               key={l.href}
               href={l.href}
+              onClick={onFechar}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                 ativo ? "bg-brand-600 text-white shadow-lg shadow-brand-900/40" : "text-slate-300 hover:bg-white/5 hover:text-white"
               }`}
