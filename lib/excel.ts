@@ -10,7 +10,6 @@ const EMPRESA = {
 };
 
 const COR_MARCA = "FF2A63F2";
-const COR_TEXTO_CLARO = "FFFFFFFF";
 const COR_TITULO = "FF1E293B";
 const COR_SUBTITULO = "FF64748B";
 const COR_CABECALHO_TABELA = "FFEEF2FF";
@@ -53,36 +52,29 @@ function agruparPorFuncionario(linhas: LinhaRelatorioPonto[]) {
   }));
 }
 
-export async function exportarRelatorioExcel(
-  linhas: LinhaRelatorioPonto[],
-  nomeFicheiro = "relatorio-ponto",
-  dataInicio?: string,
-  dataFim?: string
+/** Nomes de folha do Excel: máx. 31 caracteres, sem \ / ? * [ ] : , e únicos no livro. */
+function nomeFolhaUnico(nomeDesejado: string, usados: Set<string>): string {
+  const limpo = nomeDesejado.replace(/[\\/?*[\]:]/g, "").trim().slice(0, 31) || "Colaborador";
+  let candidato = limpo;
+  let sufixo = 2;
+  while (usados.has(candidato.toLowerCase())) {
+    const base = limpo.slice(0, 28);
+    candidato = `${base} (${sufixo})`;
+    sufixo++;
+  }
+  usados.add(candidato.toLowerCase());
+  return candidato;
+}
+
+function desenharCabecalho(
+  folha: ExcelJS.Worksheet,
+  livro: ExcelJS.Workbook,
+  logoBuffer: ArrayBuffer | null,
+  titulo: string,
+  subtitulo: string
 ) {
-  const livro = new ExcelJS.Workbook();
-  livro.creator = EMPRESA.nome;
-  livro.created = new Date();
-
-  const folha = livro.addWorksheet("Relatório de Ponto", {
-    pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-    views: [{ showGridLines: false }],
-  });
-
-  folha.columns = [
-    { key: "a", width: 15 },
-    { key: "b", width: 17 },
-    { key: "c", width: 14 },
-    { key: "d", width: 14 },
-    { key: "e", width: 14 },
-    { key: "f", width: 16 },
-  ];
-
-  // ---------------------------------------------------------------
-  // Cabeçalho / papel timbrado
-  // ---------------------------------------------------------------
   for (let i = 1; i <= 5; i++) folha.getRow(i).height = 16;
 
-  const logoBuffer = await obterLogoBuffer();
   if (logoBuffer) {
     const imagemId = livro.addImage({ buffer: logoBuffer, extension: "png" });
     folha.addImage(imagemId, { tl: { col: 0.05, row: 0.05 }, ext: { width: 72, height: 72 } });
@@ -102,10 +94,40 @@ export async function exportarRelatorioExcel(
   folha.getCell("B5").value = EMPRESA.telefone;
   folha.getCell("B5").font = { size: 10, color: { argb: COR_SUBTITULO } };
 
-  folha.mergeCells("E1:F1");
-  folha.getCell("E1").value = "Relatório de Ponto";
-  folha.getCell("E1").font = { bold: true, size: 14, color: { argb: COR_MARCA } };
-  folha.getCell("E1").alignment = { horizontal: "right" };
+  folha.getCell("A7").value = titulo;
+  folha.getCell("A7").font = { bold: true, size: 13, color: { argb: COR_MARCA } };
+  folha.getCell("A8").value = subtitulo;
+  folha.getCell("A8").font = { size: 10, color: { argb: COR_SUBTITULO } };
+
+  return 10; // primeira linha livre para a tabela
+}
+
+function estilizarCabecalhoTabela(folha: ExcelJS.Worksheet, linha: number, titulos: string[], alinhamentos: ("left" | "right")[]) {
+  const linhaCabecalho = folha.getRow(linha);
+  titulos.forEach((titulo, idx) => {
+    const celula = linhaCabecalho.getCell(idx + 1);
+    celula.value = titulo;
+    celula.font = { bold: true, size: 10, color: { argb: COR_TITULO } };
+    celula.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_CABECALHO_TABELA } };
+    celula.alignment = { horizontal: alinhamentos[idx] ?? "left", vertical: "middle" };
+    celula.border = BORDA_CELULA;
+  });
+}
+
+export async function exportarRelatorioExcel(
+  linhas: LinhaRelatorioPonto[],
+  nomeFicheiro = "relatorio-ponto",
+  dataInicio?: string,
+  dataFim?: string
+) {
+  const livro = new ExcelJS.Workbook();
+  livro.creator = EMPRESA.nome;
+  livro.created = new Date();
+
+  const logoBuffer = await obterLogoBuffer();
+  const grupos = agruparPorFuncionario(linhas);
+  const datasUnicas = Array.from(new Set(linhas.map((l) => l.data))).sort();
+  const totalGeral = linhas.reduce((s, l) => s + (l.total_horas || 0), 0);
 
   const periodo =
     dataInicio && dataFim
@@ -114,71 +136,134 @@ export async function exportarRelatorioExcel(
         : `${formatarDataPT(dataInicio)} a ${formatarDataPT(dataFim)}`
       : null;
 
-  if (periodo) {
-    folha.mergeCells("E2:F2");
-    folha.getCell("E2").value = periodo;
-    folha.getCell("E2").font = { size: 10, color: { argb: COR_SUBTITULO } };
-    folha.getCell("E2").alignment = { horizontal: "right" };
+  const subtituloResumo = [periodo, grupos.length === 1 ? "1 colaborador" : `${grupos.length} colaboradores`]
+    .filter(Boolean)
+    .join("   ·   ");
+
+  // ---------------------------------------------------------------
+  // Folha "Resumo": total de horas por dia, por colaborador, e geral
+  // ---------------------------------------------------------------
+  const folhaResumo = livro.addWorksheet("Resumo", {
+    pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+    views: [{ showGridLines: false, state: "frozen", ySplit: 10, xSplit: 2 }],
+  });
+
+  folhaResumo.columns = [
+    { key: "data", width: 13 },
+    { key: "dia", width: 16 },
+    ...grupos.map((g, idx) => ({ key: `f${idx}`, width: Math.max(12, Math.min(20, g.nome.length + 2)) })),
+    { key: "totalDia", width: 15 },
+  ];
+
+  const linhaTabelaResumo = desenharCabecalho(folhaResumo, livro, logoBuffer, "Relatório de Ponto — Resumo", subtituloResumo);
+
+  estilizarCabecalhoTabela(
+    folhaResumo,
+    linhaTabelaResumo,
+    ["Data", "Dia da Semana", ...grupos.map((g) => g.nome), "Total do Dia"],
+    ["left", "left", ...grupos.map(() => "right" as const), "right"]
+  );
+
+  let linhaAtualResumo = linhaTabelaResumo + 1;
+  for (const data of datasUnicas) {
+    const linha = folhaResumo.getRow(linhaAtualResumo);
+    linha.getCell(1).value = formatarDataPT(data);
+    linha.getCell(2).value = nomeDiaSemanaPT(data);
+
+    let totalDia = 0;
+    grupos.forEach((g, idx) => {
+      const registo = g.registos.find((r) => r.data === data);
+      const horas = registo?.total_horas || 0;
+      totalDia += horas;
+      const celula = linha.getCell(idx + 3);
+      celula.value = horas > 0 ? Number(horas.toFixed(2)) : null;
+      if (horas > 0) celula.numFmt = '0.00"h"';
+      celula.alignment = { horizontal: "right" };
+    });
+
+    const celulaTotalDia = linha.getCell(grupos.length + 3);
+    celulaTotalDia.value = Number(totalDia.toFixed(2));
+    celulaTotalDia.numFmt = '0.00"h"';
+    celulaTotalDia.font = { bold: true };
+    celulaTotalDia.alignment = { horizontal: "right" };
+
+    for (let col = 1; col <= grupos.length + 3; col++) {
+      linha.getCell(col).border = BORDA_CELULA;
+      if (col <= 2) linha.getCell(col).font = { size: 10 };
+    }
+    linhaAtualResumo++;
   }
 
-  const grupos = agruparPorFuncionario(linhas);
-  folha.mergeCells("E3:F3");
-  folha.getCell("E3").value =
-    grupos.length === 1 ? "1 colaborador" : `${grupos.length} colaboradores`;
-  folha.getCell("E3").font = { size: 10, color: { argb: COR_SUBTITULO } };
-  folha.getCell("E3").alignment = { horizontal: "right" };
-
-  folha.getCell("A6").border = { bottom: { style: "medium", color: { argb: COR_MARCA } } };
-  folha.mergeCells("A6:F6");
-  folha.getRow(6).height = 4;
+  const linhaRodapeResumo = folhaResumo.getRow(linhaAtualResumo);
+  folhaResumo.mergeCells(linhaAtualResumo, 1, linhaAtualResumo, 2);
+  linhaRodapeResumo.getCell(1).value = "Total do colaborador";
+  linhaRodapeResumo.getCell(1).alignment = { horizontal: "right" };
+  grupos.forEach((g, idx) => {
+    const celula = linhaRodapeResumo.getCell(idx + 3);
+    celula.value = Number(g.subtotal.toFixed(2));
+    celula.numFmt = '0.00"h"';
+    celula.alignment = { horizontal: "right" };
+  });
+  const celulaTotalGeralResumo = linhaRodapeResumo.getCell(grupos.length + 3);
+  celulaTotalGeralResumo.value = Number(totalGeral.toFixed(2));
+  celulaTotalGeralResumo.numFmt = '0.00"h"';
+  celulaTotalGeralResumo.alignment = { horizontal: "right" };
+  for (let col = 1; col <= grupos.length + 3; col++) {
+    linhaRodapeResumo.getCell(col).font = { bold: true, size: 10, color: { argb: COR_TITULO } };
+    linhaRodapeResumo.getCell(col).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_SUBTOTAL } };
+    linhaRodapeResumo.getCell(col).border = BORDA_CELULA;
+  }
 
   // ---------------------------------------------------------------
-  // Uma secção por colaborador
+  // Uma folha por colaborador
   // ---------------------------------------------------------------
-  let linhaAtual = 8;
+  const nomesFolhaUsados = new Set<string>(["resumo"]);
 
   for (const grupo of grupos) {
-    const linhaGrupo = folha.getRow(linhaAtual);
-    folha.mergeCells(linhaAtual, 1, linhaAtual, 6);
-    linhaGrupo.getCell(1).value = grupo.numero
-      ? `${grupo.nome}   ·   Nº ${grupo.numero}`
-      : grupo.nome;
-    linhaGrupo.getCell(1).font = { bold: true, size: 12, color: { argb: COR_TEXTO_CLARO } };
-    linhaGrupo.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_MARCA } };
-    linhaGrupo.getCell(1).alignment = { vertical: "middle" };
-    linhaGrupo.height = 22;
-    linhaAtual++;
-
-    const linhaCabecalho = folha.getRow(linhaAtual);
-    const titulos = ["Data", "Dia da Semana", "Entrada", "Saída", "Situação", "Total de Horas"];
-    titulos.forEach((titulo, idx) => {
-      const celula = linhaCabecalho.getCell(idx + 1);
-      celula.value = titulo;
-      celula.font = { bold: true, size: 10, color: { argb: COR_TITULO } };
-      celula.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_CABECALHO_TABELA } };
-      celula.alignment = { horizontal: idx === 5 ? "right" : "left", vertical: "middle" };
-      celula.border = BORDA_CELULA;
+    const nomeFolha = nomeFolhaUnico(grupo.nome, nomesFolhaUsados);
+    const folha = livro.addWorksheet(nomeFolha, {
+      pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+      views: [{ showGridLines: false }],
     });
-    linhaAtual++;
 
+    folha.columns = [
+      { key: "data", width: 13 },
+      { key: "dia", width: 17 },
+      { key: "entrada", width: 13 },
+      { key: "saida", width: 13 },
+      { key: "situacao", width: 14 },
+      { key: "horas", width: 15 },
+    ];
+
+    const subtitulo = [periodo, grupo.numero ? `Nº ${grupo.numero}` : null].filter(Boolean).join("   ·   ");
+    const linhaTabela = desenharCabecalho(folha, livro, logoBuffer, grupo.nome, subtitulo);
+
+    estilizarCabecalhoTabela(
+      folha,
+      linhaTabela,
+      ["Data", "Dia da Semana", "Entrada", "Saída", "Situação", "Total de Horas"],
+      ["left", "left", "left", "left", "left", "right"]
+    );
+
+    let linhaAtual = linhaTabela + 1;
     for (const registo of grupo.registos) {
-      const linhaDados = folha.getRow(linhaAtual);
-      linhaDados.getCell(1).value = formatarDataPT(registo.data);
-      linhaDados.getCell(2).value = nomeDiaSemanaPT(registo.data);
-      linhaDados.getCell(3).value = registo.hora_entrada ?? "—";
-      linhaDados.getCell(4).value = registo.hora_saida ?? "—";
-      linhaDados.getCell(5).value = registo.situacao;
-      linhaDados.getCell(6).value = Number((registo.total_horas || 0).toFixed(2));
-      linhaDados.getCell(6).numFmt = '0.00"h"';
-      linhaDados.getCell(6).alignment = { horizontal: "right" };
-      linhaDados.getCell(5).fill = {
+      const linha = folha.getRow(linhaAtual);
+      linha.getCell(1).value = formatarDataPT(registo.data);
+      linha.getCell(2).value = nomeDiaSemanaPT(registo.data);
+      linha.getCell(3).value = registo.hora_entrada ?? "—";
+      linha.getCell(4).value = registo.hora_saida ?? "—";
+      linha.getCell(5).value = registo.situacao;
+      linha.getCell(6).value = Number((registo.total_horas || 0).toFixed(2));
+      linha.getCell(6).numFmt = '0.00"h"';
+      linha.getCell(6).alignment = { horizontal: "right" };
+      linha.getCell(5).fill = {
         type: "pattern",
         pattern: "solid",
         fgColor: { argb: CORES_SITUACAO[registo.situacao] ?? "FFFFFFFF" },
       };
       for (let col = 1; col <= 6; col++) {
-        linhaDados.getCell(col).border = BORDA_CELULA;
-        linhaDados.getCell(col).font = { size: 10 };
+        linha.getCell(col).border = BORDA_CELULA;
+        linha.getCell(col).font = { size: 10 };
       }
       linhaAtual++;
     }
@@ -195,24 +280,6 @@ export async function exportarRelatorioExcel(
       linhaSubtotal.getCell(col).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_SUBTOTAL } };
       linhaSubtotal.getCell(col).border = BORDA_CELULA;
     }
-    linhaAtual += 2;
-  }
-
-  // ---------------------------------------------------------------
-  // Total geral
-  // ---------------------------------------------------------------
-  const totalGeral = linhas.reduce((soma, l) => soma + (l.total_horas || 0), 0);
-  const linhaTotalGeral = folha.getRow(linhaAtual);
-  folha.mergeCells(linhaAtual, 1, linhaAtual, 5);
-  linhaTotalGeral.getCell(1).value = "Total geral do período";
-  linhaTotalGeral.getCell(1).alignment = { horizontal: "right", vertical: "middle" };
-  linhaTotalGeral.getCell(6).value = Number(totalGeral.toFixed(2));
-  linhaTotalGeral.getCell(6).numFmt = '0.00"h"';
-  linhaTotalGeral.getCell(6).alignment = { horizontal: "right", vertical: "middle" };
-  linhaTotalGeral.height = 24;
-  for (let col = 1; col <= 6; col++) {
-    linhaTotalGeral.getCell(col).font = { bold: true, size: 12, color: { argb: COR_TEXTO_CLARO } };
-    linhaTotalGeral.getCell(col).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_MARCA } };
   }
 
   const buffer = await livro.xlsx.writeBuffer();
