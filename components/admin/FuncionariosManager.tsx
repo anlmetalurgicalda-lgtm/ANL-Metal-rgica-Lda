@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { Funcionario } from "@/lib/types";
-import { Plus, Pencil, User, Check, X as XIcon, Ban, CheckCircle2 } from "lucide-react";
+import { Plus, Pencil, User, Check, X as XIcon, Ban, CheckCircle2, Trash2, Loader2 } from "lucide-react";
 import FuncionarioFormModal from "./FuncionarioFormModal";
 
 const NOMES_DIAS = ["", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -15,6 +15,7 @@ export default function FuncionariosManager() {
   const [aCarregar, setACarregar] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Funcionario | null>(null);
+  const [aEliminar, setAEliminar] = useState<string | null>(null);
 
   async function carregar() {
     setACarregar(true);
@@ -44,6 +45,27 @@ export default function FuncionariosManager() {
 
   async function alternarAtivo(f: Funcionario) {
     await supabase.from("funcionarios").update({ ativo: !f.ativo }).eq("id", f.id);
+    carregar();
+  }
+
+  async function eliminar(f: Funcionario) {
+    if (
+      !window.confirm(
+        `Eliminar definitivamente "${f.nome_completo}"?\n\nIsto apaga também todo o histórico de ponto deste colaborador (entradas, saídas, faltas e folgas) e não pode ser desfeito.\n\nSe só pretende que deixe de aparecer no quiosque, use "Desativar" em vez disso.`
+      )
+    ) {
+      return;
+    }
+
+    setAEliminar(f.id);
+    const { error } = await supabase.from("funcionarios").delete().eq("id", f.id);
+    setAEliminar(null);
+
+    if (error) {
+      alert("Não foi possível eliminar o colaborador.");
+      return;
+    }
+
     carregar();
   }
 
@@ -149,10 +171,18 @@ export default function FuncionariosManager() {
                   </button>
                   <button
                     onClick={() => alternarAtivo(f)}
-                    className="rounded p-1.5 text-slate-500 hover:bg-slate-100"
+                    className="mr-1 rounded p-1.5 text-slate-500 hover:bg-slate-100"
                     title={f.ativo ? "Desativar" : "Ativar"}
                   >
                     {f.ativo ? <Ban size={16} /> : <CheckCircle2 size={16} />}
+                  </button>
+                  <button
+                    onClick={() => eliminar(f)}
+                    disabled={aEliminar === f.id}
+                    className="rounded p-1.5 text-rose-500 hover:bg-rose-50 disabled:opacity-60"
+                    title="Eliminar"
+                  >
+                    {aEliminar === f.id ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
                   </button>
                 </td>
               </tr>
