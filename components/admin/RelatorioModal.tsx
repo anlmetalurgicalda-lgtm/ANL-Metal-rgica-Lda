@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { LinhaRelatorioPonto } from "@/lib/types";
 import { formatarDataPT, nomeDiaSemanaPT } from "@/lib/timezone";
 import { exportarRelatorioExcel } from "@/lib/excel";
-import { X, FileSpreadsheet, Loader2 } from "lucide-react";
+import { X, FileSpreadsheet, Loader2, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 
 interface Props {
   dataInicio: string;
@@ -56,10 +56,38 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
       lista.push(linha);
       grupos.set(linha.nome_completo, lista);
     }
-    return Array.from(grupos.entries());
+    return Array.from(grupos.entries()).map(([nome, registos]) => ({
+      nome,
+      registos,
+      subtotal: registos.reduce((s, r) => s + (r.total_horas || 0), 0),
+      diasTrabalhados: registos.filter((r) => r.situacao === "Trabalhado" || r.situacao === "Incompleto").length,
+      faltas: registos.filter((r) => r.situacao === "Falta").length,
+      folgas: registos.filter((r) => r.situacao === "Folga").length,
+    }));
   }, [linhas]);
 
   const totalGeral = useMemo(() => linhas.reduce((s, l) => s + (l.total_horas || 0), 0), [linhas]);
+
+  const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setExpandidos(porFuncionario.length === 1 ? new Set([porFuncionario[0].nome]) : new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linhas]);
+
+  function alternarExpandido(nome: string) {
+    setExpandidos((atual) => {
+      const novo = new Set(atual);
+      novo.has(nome) ? novo.delete(nome) : novo.add(nome);
+      return novo;
+    });
+  }
+
+  function alternarTodos() {
+    setExpandidos((atual) =>
+      atual.size === porFuncionario.length ? new Set() : new Set(porFuncionario.map((p) => p.nome))
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
@@ -110,52 +138,99 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
           )}
 
           {!aCarregar && !erro && linhas.length > 0 && (
-            <div className="space-y-8">
-              {porFuncionario.map(([nome, registos]) => {
-                const subtotal = registos.reduce((s, r) => s + (r.total_horas || 0), 0);
+            <div className="space-y-3">
+              {porFuncionario.length > 1 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">
+                    {porFuncionario.length} colaborador(es) · clique num nome para ver o detalhe diário
+                  </span>
+                  <button
+                    onClick={alternarTodos}
+                    className="flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700"
+                  >
+                    {expandidos.size === porFuncionario.length ? (
+                      <>
+                        <ChevronsDownUp size={15} /> Colapsar todos
+                      </>
+                    ) : (
+                      <>
+                        <ChevronsUpDown size={15} /> Expandir todos
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {porFuncionario.map(({ nome, registos, subtotal, diasTrabalhados, faltas, folgas }) => {
+                const aberto = expandidos.has(nome);
                 return (
-                  <div key={nome}>
-                    <h3 className="mb-2 font-semibold text-slate-800">{nome}</h3>
-                    <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
-                      <table className="w-full min-w-[640px] text-sm">
-                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                          <tr>
-                            <th className="px-3 py-2">Data</th>
-                            <th className="px-3 py-2">Dia</th>
-                            <th className="px-3 py-2">Entrada</th>
-                            <th className="px-3 py-2">Saída</th>
-                            <th className="px-3 py-2">Situação</th>
-                            <th className="px-3 py-2 text-right">Horas</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {registos.map((r) => (
-                            <tr key={`${r.funcionario_id}-${r.data}`}>
-                              <td className="px-3 py-2 text-slate-700">{formatarDataPT(r.data)}</td>
-                              <td className="px-3 py-2 text-slate-500">{nomeDiaSemanaPT(r.data)}</td>
-                              <td className="px-3 py-2 text-slate-700">{r.hora_entrada ?? "—"}</td>
-                              <td className="px-3 py-2 text-slate-700">{r.hora_saida ?? "—"}</td>
-                              <td className="px-3 py-2">
-                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CORES_SITUACAO[r.situacao]}`}>
-                                  {r.situacao}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 text-right font-medium text-slate-700">
-                                {r.total_horas.toFixed(2)}h
-                              </td>
+                  <div key={nome} className="overflow-hidden rounded-xl ring-1 ring-slate-100">
+                    <button
+                      onClick={() => alternarExpandido(nome)}
+                      className="flex w-full flex-wrap items-center justify-between gap-2 bg-white px-4 py-3 text-left hover:bg-slate-50"
+                    >
+                      <span className="flex items-center gap-2 font-semibold text-slate-800">
+                        {aberto ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                        {nome}
+                      </span>
+                      <span className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+                          {diasTrabalhados} trabalhado(s)
+                        </span>
+                        {faltas > 0 && (
+                          <span className="rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700">{faltas} falta(s)</span>
+                        )}
+                        {folgas > 0 && (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">{folgas} folga(s)</span>
+                        )}
+                        <span className="rounded-full bg-brand-50 px-2 py-0.5 font-semibold text-brand-700">
+                          {subtotal.toFixed(2)}h
+                        </span>
+                      </span>
+                    </button>
+
+                    {aberto && (
+                      <div className="overflow-x-auto border-t border-slate-100">
+                        <table className="w-full min-w-[640px] text-sm">
+                          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2">Data</th>
+                              <th className="px-3 py-2">Dia</th>
+                              <th className="px-3 py-2">Entrada</th>
+                              <th className="px-3 py-2">Saída</th>
+                              <th className="px-3 py-2">Situação</th>
+                              <th className="px-3 py-2 text-right">Horas</th>
                             </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="bg-slate-50 font-semibold text-slate-800">
-                            <td colSpan={5} className="px-3 py-2 text-right">
-                              Total do colaborador
-                            </td>
-                            <td className="px-3 py-2 text-right">{subtotal.toFixed(2)}h</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {registos.map((r) => (
+                              <tr key={`${r.funcionario_id}-${r.data}`}>
+                                <td className="px-3 py-2 text-slate-700">{formatarDataPT(r.data)}</td>
+                                <td className="px-3 py-2 text-slate-500">{nomeDiaSemanaPT(r.data)}</td>
+                                <td className="px-3 py-2 text-slate-700">{r.hora_entrada ?? "—"}</td>
+                                <td className="px-3 py-2 text-slate-700">{r.hora_saida ?? "—"}</td>
+                                <td className="px-3 py-2">
+                                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CORES_SITUACAO[r.situacao]}`}>
+                                    {r.situacao}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-right font-medium text-slate-700">
+                                  {r.total_horas.toFixed(2)}h
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-slate-50 font-semibold text-slate-800">
+                              <td colSpan={5} className="px-3 py-2 text-right">
+                                Total do colaborador
+                              </td>
+                              <td className="px-3 py-2 text-right">{subtotal.toFixed(2)}h</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 );
               })}
