@@ -125,12 +125,12 @@ export default function AdminFormModal({ onFechar, onCriado }: Props) {
         </div>
 
         <label className="mb-1 block text-sm font-medium text-slate-700">
-          Associar a um colaborador existente (opcional)
+          Associar a um funcionário existente (opcional)
         </label>
         <select
           value={funcionarioId}
           onChange={(e) => aoSelecionarFuncionario(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          className="mb-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
         >
           <option value="">— Nenhum, é uma conta nova —</option>
           {funcionarios.map((f) => (
@@ -139,6 +139,11 @@ export default function AdminFormModal({ onFechar, onCriado }: Props) {
             </option>
           ))}
         </select>
+        <p className="mb-4 text-xs text-slate-400">
+          {funcionarioId
+            ? "Este funcionário continua a precisar de registar ponto normalmente — só ganha, também, acesso ao painel."
+            : "Sem funcionário associado, esta conta não regista ponto nem aparece nos relatórios."}
+        </p>
 
         <label className="mb-1 block text-sm font-medium text-slate-700">Nome completo</label>
         <input

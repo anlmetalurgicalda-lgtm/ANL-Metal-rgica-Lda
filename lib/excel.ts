@@ -54,7 +54,7 @@ function agruparPorFuncionario(linhas: LinhaRelatorioPonto[]) {
 
 /** Nomes de folha do Excel: máx. 31 caracteres, sem \ / ? * [ ] : , e únicos no livro. */
 function nomeFolhaUnico(nomeDesejado: string, usados: Set<string>): string {
-  const limpo = nomeDesejado.replace(/[\\/?*[\]:]/g, "").trim().slice(0, 31) || "Colaborador";
+  const limpo = nomeDesejado.replace(/[\\/?*[\]:]/g, "").trim().slice(0, 31) || "Funcionário";
   let candidato = limpo;
   let sufixo = 2;
   while (usados.has(candidato.toLowerCase())) {
@@ -136,12 +136,12 @@ export async function exportarRelatorioExcel(
         : `${formatarDataPT(dataInicio)} a ${formatarDataPT(dataFim)}`
       : null;
 
-  const subtituloResumo = [periodo, grupos.length === 1 ? "1 colaborador" : `${grupos.length} colaboradores`]
+  const subtituloResumo = [periodo, grupos.length === 1 ? "1 funcionário" : `${grupos.length} funcionários`]
     .filter(Boolean)
     .join("   ·   ");
 
   // ---------------------------------------------------------------
-  // Folha "Resumo": total de horas por dia, por colaborador, e geral
+  // Folha "Resumo": total de horas por dia, por funcionário, e geral
   // ---------------------------------------------------------------
   const folhaResumo = livro.addWorksheet("Resumo", {
     pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
@@ -196,7 +196,7 @@ export async function exportarRelatorioExcel(
 
   const linhaRodapeResumo = folhaResumo.getRow(linhaAtualResumo);
   folhaResumo.mergeCells(linhaAtualResumo, 1, linhaAtualResumo, 2);
-  linhaRodapeResumo.getCell(1).value = "Total do colaborador";
+  linhaRodapeResumo.getCell(1).value = "Total do funcionário";
   linhaRodapeResumo.getCell(1).alignment = { horizontal: "right" };
   grupos.forEach((g, idx) => {
     const celula = linhaRodapeResumo.getCell(idx + 3);
@@ -215,7 +215,7 @@ export async function exportarRelatorioExcel(
   }
 
   // ---------------------------------------------------------------
-  // Uma folha por colaborador
+  // Uma folha por funcionário
   // ---------------------------------------------------------------
   const nomesFolhaUsados = new Set<string>(["resumo"]);
 
@@ -270,7 +270,7 @@ export async function exportarRelatorioExcel(
 
     const linhaSubtotal = folha.getRow(linhaAtual);
     folha.mergeCells(linhaAtual, 1, linhaAtual, 5);
-    linhaSubtotal.getCell(1).value = "Total do colaborador";
+    linhaSubtotal.getCell(1).value = "Total do funcionário";
     linhaSubtotal.getCell(1).alignment = { horizontal: "right" };
     linhaSubtotal.getCell(6).value = Number(grupo.subtotal.toFixed(2));
     linhaSubtotal.getCell(6).numFmt = '0.00"h"';

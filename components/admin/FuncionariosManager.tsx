@@ -51,7 +51,7 @@ export default function FuncionariosManager() {
   async function eliminar(f: Funcionario) {
     if (
       !window.confirm(
-        `Eliminar definitivamente "${f.nome_completo}"?\n\nIsto apaga também todo o histórico de ponto deste colaborador (entradas, saídas, faltas e folgas) e não pode ser desfeito.\n\nSe só pretende que deixe de aparecer no quiosque, use "Desativar" em vez disso.`
+        `Eliminar definitivamente "${f.nome_completo}"?\n\nIsto apaga também todo o histórico de ponto deste funcionário (entradas, saídas, faltas e folgas) e não pode ser desfeito.\n\nSe só pretende que deixe de aparecer no quiosque, use "Desativar" em vez disso.`
       )
     ) {
       return;
@@ -62,7 +62,7 @@ export default function FuncionariosManager() {
     setAEliminar(null);
 
     if (error) {
-      alert("Não foi possível eliminar o colaborador.");
+      alert("Não foi possível eliminar o funcionário.");
       return;
     }
 
@@ -74,7 +74,7 @@ export default function FuncionariosManager() {
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Funcionários</h1>
-          <p className="text-sm text-slate-500">Colaboradores, horários e fotos de perfil.</p>
+          <p className="text-sm text-slate-500">Funcionários, horários e fotos de perfil.</p>
         </div>
         <button
           onClick={() => {
@@ -83,7 +83,7 @@ export default function FuncionariosManager() {
           }}
           className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-brand-700"
         >
-          <Plus size={18} /> Novo Colaborador
+          <Plus size={18} /> Novo Funcionário
         </button>
       </div>
 
@@ -91,7 +91,7 @@ export default function FuncionariosManager() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3">Colaborador</th>
+              <th className="px-4 py-3">Funcionário</th>
               <th className="px-4 py-3">Horário</th>
               <th className="px-4 py-3">Dias</th>
               <th className="px-4 py-3">Estado</th>
@@ -109,7 +109,7 @@ export default function FuncionariosManager() {
             {!aCarregar && funcionarios.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
-                  Nenhum colaborador registado.
+                  Nenhum funcionário registado.
                 </td>
               </tr>
             )}

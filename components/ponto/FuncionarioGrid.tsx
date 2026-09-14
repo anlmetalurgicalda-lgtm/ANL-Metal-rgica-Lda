@@ -13,7 +13,7 @@ export default function FuncionarioGrid({ funcionarios, onSelecionar }: Props) {
   if (funcionarios.length === 0) {
     return (
       <p className="rounded-2xl bg-white/70 px-6 py-10 text-center text-sm text-slate-400 ring-1 ring-slate-100">
-        Nenhum colaborador disponível. Peça ao Administrador para os registar.
+        Nenhum funcionário disponível. Peça ao Administrador para os registar.
       </p>
     );
   }

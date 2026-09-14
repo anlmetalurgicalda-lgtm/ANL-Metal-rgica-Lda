@@ -56,7 +56,7 @@ export default function FuncionarioFormModal({ funcionario, onFechar, onGuardado
       return;
     }
     if (!editando && !senha) {
-      setErro("Defina um código de 6 dígitos para o novo colaborador.");
+      setErro("Defina um código de 6 dígitos para o novo funcionário.");
       return;
     }
     if (senha && !/^\d{6}$/.test(senha)) {
@@ -112,7 +112,7 @@ export default function FuncionarioFormModal({ funcionario, onFechar, onGuardado
 
       if (error || !novo) {
         setAGuardar(false);
-        setErro("Não foi possível criar o colaborador.");
+        setErro("Não foi possível criar o funcionário.");
         return;
       }
 
@@ -128,7 +128,7 @@ export default function FuncionarioFormModal({ funcionario, onFechar, onGuardado
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">
-            {editando ? "Editar Colaborador" : "Novo Colaborador"}
+            {editando ? "Editar Funcionário" : "Novo Funcionário"}
           </h2>
           <button onClick={onFechar} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100">
             <X size={20} />
@@ -192,7 +192,7 @@ export default function FuncionarioFormModal({ funcionario, onFechar, onGuardado
               className="w-full rounded-lg border border-slate-300 px-3 py-2 tracking-[0.3em] outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             />
             <p className="mt-1 text-xs text-slate-400">
-              É o código que o colaborador usa no teclado numérico do ecrã de ponto.
+              É o código que o funcionário usa no teclado numérico do ecrã de ponto.
             </p>
           </div>
 

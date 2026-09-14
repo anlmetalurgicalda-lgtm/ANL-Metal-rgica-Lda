@@ -110,10 +110,10 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
                 : `${formatarDataPT(dataInicio)} a ${formatarDataPT(dataFim)}`}{" "}
               ·{" "}
               {!funcionarioIds || funcionarioIds.length === 0
-                ? "Todos os colaboradores"
+                ? "Todos os funcionários"
                 : funcionarioIds.length === 1
-                  ? "1 colaborador"
-                  : `${funcionarioIds.length} colaboradores`}
+                  ? "1 funcionário"
+                  : `${funcionarioIds.length} funcionários`}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -211,7 +211,7 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
                     <tfoot>
                       <tr className="bg-slate-50 font-semibold text-slate-800">
                         <td className="sticky left-0 z-10 bg-slate-50 px-3 py-2" colSpan={2}>
-                          Total do colaborador
+                          Total do funcionário
                         </td>
                         {porFuncionario.map(({ nome, subtotal }) => (
                           <td key={nome} className="px-3 py-2 text-right">
@@ -257,7 +257,7 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
                     <tfoot>
                       <tr className="bg-slate-50 font-semibold text-slate-800">
                         <td colSpan={5} className="px-3 py-2 text-right">
-                          Total do colaborador
+                          Total do funcionário
                         </td>
                         <td className="px-3 py-2 text-right">{funcionarioAtivo.subtotal.toFixed(2)}h</td>
                       </tr>

@@ -94,7 +94,7 @@ export default function AtividadeHojeTable() {
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
         <div>
           <h2 className="font-semibold text-slate-900">Atividade de hoje</h2>
-          <p className="text-sm text-slate-500">Entrada e saída de cada colaborador, em tempo real.</p>
+          <p className="text-sm text-slate-500">Entrada e saída de cada funcionário, em tempo real.</p>
         </div>
         <Clock size={18} className="text-slate-400" />
       </div>
@@ -110,7 +110,7 @@ export default function AtividadeHojeTable() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-5 py-2">Colaborador</th>
+                <th className="px-5 py-2">Funcionário</th>
                 <th className="px-5 py-2">
                   <span className="inline-flex items-center gap-1">
                     <LogIn size={12} /> Entrada

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Notificacao } from "@/lib/types";
 import { formatarDataHoraLisboa } from "@/lib/timezone";
-import { Bell, Camera, AlertTriangle, ShieldAlert, Info } from "lucide-react";
+import { Bell, Camera, AlertTriangle, ShieldAlert, Info, Trash2 } from "lucide-react";
 
 const ICONES: Record<Notificacao["tipo"], JSX.Element> = {
   foto_pendente: <Camera size={16} className="text-brand-600" />,
@@ -17,6 +17,20 @@ export default function NotificacoesPanel() {
   const supabase = createClient();
   const [aberto, setAberto] = useState(false);
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!aberto) return;
+
+    function aoClicarFora(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setAberto(false);
+      }
+    }
+
+    document.addEventListener("mousedown", aoClicarFora);
+    return () => document.removeEventListener("mousedown", aoClicarFora);
+  }, [aberto]);
 
   async function carregar() {
     const { data } = await supabase
@@ -45,10 +59,15 @@ export default function NotificacoesPanel() {
     carregar();
   }
 
+  async function limparTudo() {
+    await supabase.from("notificacoes").delete().not("id", "is", null);
+    setNotificacoes([]);
+  }
+
   const naoLidas = notificacoes.filter((n) => !n.lida).length;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={() => setAberto((v) => !v)}
         className="relative rounded-full p-2 text-slate-600 hover:bg-slate-100"
@@ -66,7 +85,14 @@ export default function NotificacoesPanel() {
         <div className="absolute right-0 z-40 mt-2 w-96 max-w-[90vw] rounded-xl bg-white shadow-xl ring-1 ring-slate-100">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <h3 className="font-medium text-slate-900">Notificações</h3>
-            <span className="text-xs text-slate-400">{notificacoes.length} recentes</span>
+            {notificacoes.length > 0 && (
+              <button
+                onClick={limparTudo}
+                className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-rose-600"
+              >
+                <Trash2 size={13} /> Limpar tudo
+              </button>
+            )}
           </div>
           <div className="max-h-96 overflow-y-auto">
             {notificacoes.length === 0 && (

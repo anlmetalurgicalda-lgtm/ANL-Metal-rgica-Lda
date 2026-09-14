@@ -21,7 +21,7 @@ export default async function AdminDashboard() {
     .eq("tipo", "entrada");
 
   const cartoes = [
-    { titulo: "Colaboradores ativos", valor: totalFuncionarios ?? 0, icon: Users, cor: "bg-brand-50 text-brand-700" },
+    { titulo: "Funcionários ativos", valor: totalFuncionarios ?? 0, icon: Users, cor: "bg-brand-50 text-brand-700" },
     { titulo: "Fotos pendentes", valor: fotosPendentes ?? 0, icon: Camera, cor: "bg-amber-50 text-amber-700" },
     { titulo: "Entradas registadas hoje", valor: registosHoje ?? 0, icon: Clock, cor: "bg-emerald-50 text-emerald-700" },
   ];

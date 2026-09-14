@@ -33,15 +33,21 @@ export default function SeletorFuncionariosRelatorio({ selecionados, onMudar }: 
 
   return (
     <div>
-      <label className="mb-2 block text-sm font-medium text-slate-700">Colaboradores</label>
+      <label className="mb-2 block text-sm font-medium text-slate-700">Funcionários</label>
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => onMudar([])}
-          className={`flex items-center gap-2 rounded-full py-1.5 pl-2 pr-3.5 text-sm font-medium transition ${
-            todosAtivo ? "bg-brand-600 text-white shadow-sm" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1.5 pl-2 pr-3.5 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1 ${
+            todosAtivo
+              ? "bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-300"
+              : "bg-slate-100 text-slate-600 ring-1 ring-inset ring-transparent hover:bg-slate-200"
           }`}
         >
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20">
+          <span
+            className={`flex h-6 w-6 items-center justify-center rounded-full ${
+              todosAtivo ? "bg-white text-brand-600" : "bg-white text-slate-400"
+            }`}
+          >
             <Users size={14} />
           </span>
           Todos
@@ -53,19 +59,21 @@ export default function SeletorFuncionariosRelatorio({ selecionados, onMudar }: 
             <button
               key={f.id}
               onClick={() => alternar(f.id)}
-              className={`flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3.5 text-sm font-medium transition ${
-                ativo ? "bg-brand-600 text-white shadow-sm" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1.5 pl-1.5 pr-3.5 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1 ${
+                ativo
+                  ? "bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-300"
+                  : "bg-slate-100 text-slate-600 ring-1 ring-inset ring-transparent hover:bg-slate-200"
               }`}
             >
-              <span className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-white/40">
+              <span className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white">
                 {f.foto_url ? (
                   <Image src={f.foto_url} alt={f.nome_completo} fill sizes="24px" className="object-cover" />
                 ) : (
-                  <User size={12} className={ativo ? "text-white" : "text-slate-400"} />
+                  <User size={12} className={ativo ? "text-brand-500" : "text-slate-400"} />
                 )}
               </span>
               {f.nome_completo}
-              {ativo && <Check size={14} />}
+              {ativo && <Check size={14} className="shrink-0" />}
             </button>
           );
         })}

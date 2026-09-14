@@ -77,7 +77,8 @@ export default function GestaoPontoManager() {
   function alternarSelecao(id: string) {
     setSelecionados((atual) => {
       const novo = new Set(atual);
-      novo.has(id) ? novo.delete(id) : novo.add(id);
+      if (novo.has(id)) novo.delete(id);
+      else novo.add(id);
       return novo;
     });
   }
@@ -90,7 +91,7 @@ export default function GestaoPontoManager() {
 
   function pedirForcar(tipo: "entrada" | "saida") {
     if (selecionados.size === 0) {
-      setMensagem({ tipo: "erro", texto: "Selecione pelo menos um colaborador." });
+      setMensagem({ tipo: "erro", texto: "Selecione pelo menos um funcionário." });
       return;
     }
     setMensagem(null);
@@ -99,7 +100,7 @@ export default function GestaoPontoManager() {
 
   async function aplicar(tipo: PontoTipo, usarHorarioPadrao: boolean, horaCustomizada: string | null) {
     if (selecionados.size === 0) {
-      setMensagem({ tipo: "erro", texto: "Selecione pelo menos um colaborador." });
+      setMensagem({ tipo: "erro", texto: "Selecione pelo menos um funcionário." });
       return;
     }
 
@@ -128,17 +129,17 @@ export default function GestaoPontoManager() {
       falta: "Falta marcada",
       folga: "Folga marcada",
     };
-    setMensagem({ tipo: "sucesso", texto: `${rotulos[tipo]} para ${selecionados.size} colaborador(es).` });
+    setMensagem({ tipo: "sucesso", texto: `${rotulos[tipo]} para ${selecionados.size} funcionário(s).` });
     carregar();
   }
 
   async function voltarAoNormal() {
     if (selecionados.size === 0) {
-      setMensagem({ tipo: "erro", texto: "Selecione pelo menos um colaborador." });
+      setMensagem({ tipo: "erro", texto: "Selecione pelo menos um funcionário." });
       return;
     }
 
-    if (!window.confirm(`Repor o estado normal de ${selecionados.size} colaborador(es) nesta data? Isto remove entradas, saídas, faltas ou folgas registadas.`)) {
+    if (!window.confirm(`Repor o estado normal de ${selecionados.size} funcionário(s) nesta data? Isto remove entradas, saídas, faltas ou folgas registadas.`)) {
       return;
     }
 
@@ -157,7 +158,7 @@ export default function GestaoPontoManager() {
       return;
     }
 
-    setMensagem({ tipo: "sucesso", texto: `Estado normal reposto para ${selecionados.size} colaborador(es).` });
+    setMensagem({ tipo: "sucesso", texto: `Estado normal reposto para ${selecionados.size} funcionário(s).` });
     carregar();
   }
 
@@ -263,7 +264,7 @@ export default function GestaoPontoManager() {
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="w-10 px-4 py-2"></th>
-                <th className="px-4 py-2">Colaborador</th>
+                <th className="px-4 py-2">Funcionário</th>
                 <th className="px-4 py-2">Horário previsto</th>
                 <th className="px-4 py-2">Entrada</th>
                 <th className="px-4 py-2">Saída</th>
@@ -282,7 +283,7 @@ export default function GestaoPontoManager() {
               {!aCarregar && linhas.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                    Nenhum colaborador ativo.
+                    Nenhum funcionário ativo.
                   </td>
                 </tr>
               )}

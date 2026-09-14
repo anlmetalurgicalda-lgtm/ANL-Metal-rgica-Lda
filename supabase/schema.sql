@@ -187,7 +187,7 @@ begin
   end if;
 
   if v_existe_oposto then
-    raise exception 'Já existe um registo incompatível para este colaborador nesta data (%).', new.data;
+    raise exception 'Já existe um registo incompatível para este funcionário nesta data (%).', new.data;
   end if;
 
   return new;
@@ -600,7 +600,7 @@ begin
   end if;
 
   if p_nova_senha !~ '^[0-9]{6}$' then
-    raise exception 'A senha do colaborador tem de ter exatamente 6 dígitos numéricos.';
+    raise exception 'A senha do funcionário tem de ter exatamente 6 dígitos numéricos.';
   end if;
 
   update public.funcionarios
@@ -635,7 +635,7 @@ begin
   end if;
 
   if p_senha !~ '^[0-9]{6}$' then
-    raise exception 'A senha do colaborador tem de ter exatamente 6 dígitos numéricos.';
+    raise exception 'A senha do funcionário tem de ter exatamente 6 dígitos numéricos.';
   end if;
 
   insert into public.funcionarios (
@@ -898,6 +898,10 @@ create policy "notificacoes_select_admin" on public.notificacoes
 drop policy if exists "notificacoes_update_admin" on public.notificacoes;
 create policy "notificacoes_update_admin" on public.notificacoes
   for update using (public.is_admin());
+
+drop policy if exists "notificacoes_delete_admin" on public.notificacoes;
+create policy "notificacoes_delete_admin" on public.notificacoes
+  for delete using (public.is_admin());
 
 -- Permite que a view do quiosque seja lida por anon (a view já filtra as colunas sensíveis)
 grant select on public.vw_funcionarios_kiosk to anon, authenticated;
