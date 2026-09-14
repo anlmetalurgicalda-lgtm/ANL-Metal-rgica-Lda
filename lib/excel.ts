@@ -21,6 +21,7 @@ const CORES_SITUACAO: Record<string, string> = {
   Incompleto: "FFFEF3C7",
   Falta: "FFFFE4E6",
   Folga: "FFF1F5F9",
+  Férias: "FFE0E7FF",
   "Sem registo": "FFF8FAFC",
 };
 
@@ -49,6 +50,7 @@ function agruparPorFuncionario(linhas: LinhaRelatorioPonto[]) {
     registos,
     numero: registos[0]?.numero_funcionario ?? null,
     subtotal: registos.reduce((s, r) => s + (r.total_horas || 0), 0),
+    subtotalExtra: registos.reduce((s, r) => s + (r.horas_extra || 0), 0),
   }));
 }
 
@@ -232,7 +234,8 @@ export async function exportarRelatorioExcel(
       { key: "entrada", width: 13 },
       { key: "saida", width: 13 },
       { key: "situacao", width: 14 },
-      { key: "horas", width: 15 },
+      { key: "horas", width: 14 },
+      { key: "horasExtra", width: 14 },
     ];
 
     const subtitulo = [periodo, grupo.numero ? `Nº ${grupo.numero}` : null].filter(Boolean).join("   ·   ");
@@ -241,8 +244,8 @@ export async function exportarRelatorioExcel(
     estilizarCabecalhoTabela(
       folha,
       linhaTabela,
-      ["Data", "Dia da Semana", "Entrada", "Saída", "Situação", "Total de Horas"],
-      ["left", "left", "left", "left", "left", "right"]
+      ["Data", "Dia da Semana", "Entrada", "Saída", "Situação", "Total de Horas", "Hora Extra"],
+      ["left", "left", "left", "left", "left", "right", "right"]
     );
 
     let linhaAtual = linhaTabela + 1;
@@ -256,14 +259,20 @@ export async function exportarRelatorioExcel(
       linha.getCell(6).value = Number((registo.total_horas || 0).toFixed(2));
       linha.getCell(6).numFmt = '0.00"h"';
       linha.getCell(6).alignment = { horizontal: "right" };
+      if (registo.horas_extra > 0) {
+        linha.getCell(7).value = Number(registo.horas_extra.toFixed(2));
+        linha.getCell(7).numFmt = '0.00"h"';
+        linha.getCell(7).font = { size: 10, color: { argb: "FFC2410C" } };
+      }
+      linha.getCell(7).alignment = { horizontal: "right" };
       linha.getCell(5).fill = {
         type: "pattern",
         pattern: "solid",
         fgColor: { argb: CORES_SITUACAO[registo.situacao] ?? "FFFFFFFF" },
       };
-      for (let col = 1; col <= 6; col++) {
+      for (let col = 1; col <= 7; col++) {
         linha.getCell(col).border = BORDA_CELULA;
-        linha.getCell(col).font = { size: 10 };
+        if (!linha.getCell(col).font) linha.getCell(col).font = { size: 10 };
       }
       linhaAtual++;
     }
@@ -275,7 +284,12 @@ export async function exportarRelatorioExcel(
     linhaSubtotal.getCell(6).value = Number(grupo.subtotal.toFixed(2));
     linhaSubtotal.getCell(6).numFmt = '0.00"h"';
     linhaSubtotal.getCell(6).alignment = { horizontal: "right" };
-    for (let col = 1; col <= 6; col++) {
+    if (grupo.subtotalExtra > 0) {
+      linhaSubtotal.getCell(7).value = Number(grupo.subtotalExtra.toFixed(2));
+      linhaSubtotal.getCell(7).numFmt = '0.00"h"';
+    }
+    linhaSubtotal.getCell(7).alignment = { horizontal: "right" };
+    for (let col = 1; col <= 7; col++) {
       linhaSubtotal.getCell(col).font = { bold: true, size: 10, color: { argb: COR_TITULO } };
       linhaSubtotal.getCell(col).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_SUBTOTAL } };
       linhaSubtotal.getCell(col).border = BORDA_CELULA;

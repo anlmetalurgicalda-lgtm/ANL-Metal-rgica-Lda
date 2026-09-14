@@ -19,6 +19,7 @@ const CORES_SITUACAO: Record<string, string> = {
   Incompleto: "bg-amber-50 text-amber-700",
   Falta: "bg-rose-50 text-rose-700",
   Folga: "bg-slate-100 text-slate-600",
+  Férias: "bg-indigo-50 text-indigo-700",
   "Sem registo": "bg-slate-50 text-slate-400",
 };
 
@@ -63,9 +64,11 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
       nome,
       registos,
       subtotal: registos.reduce((s, r) => s + (r.total_horas || 0), 0),
+      subtotalExtra: registos.reduce((s, r) => s + (r.horas_extra || 0), 0),
       diasTrabalhados: registos.filter((r) => r.situacao === "Trabalhado" || r.situacao === "Incompleto").length,
       faltas: registos.filter((r) => r.situacao === "Falta").length,
       folgas: registos.filter((r) => r.situacao === "Folga").length,
+      ferias: registos.filter((r) => r.situacao === "Férias").length,
     }));
   }, [linhas]);
 
@@ -236,6 +239,7 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
                         <th className="px-3 py-2">Saída</th>
                         <th className="px-3 py-2">Situação</th>
                         <th className="px-3 py-2 text-right">Horas</th>
+                        <th className="px-3 py-2 text-right">Hora Extra</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -251,6 +255,9 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
                             </span>
                           </td>
                           <td className="px-3 py-2 text-right font-medium text-slate-700">{r.total_horas.toFixed(2)}h</td>
+                          <td className="px-3 py-2 text-right font-medium text-orange-600">
+                            {r.horas_extra > 0 ? `+${r.horas_extra.toFixed(2)}h` : "—"}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -260,6 +267,9 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
                           Total do funcionário
                         </td>
                         <td className="px-3 py-2 text-right">{funcionarioAtivo.subtotal.toFixed(2)}h</td>
+                        <td className="px-3 py-2 text-right text-orange-700">
+                          {funcionarioAtivo.subtotalExtra > 0 ? `+${funcionarioAtivo.subtotalExtra.toFixed(2)}h` : "—"}
+                        </td>
                       </tr>
                     </tfoot>
                   </table>

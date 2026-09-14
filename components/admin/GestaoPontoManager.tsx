@@ -5,7 +5,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { Funcionario, LinhaRelatorioPonto, PontoTipo } from "@/lib/types";
 import { dataLisboaISO } from "@/lib/timezone";
-import { User, LogIn, LogOut, CalendarOff, Ban, CheckCheck, RotateCcw } from "lucide-react";
+import { User, LogIn, LogOut, CalendarOff, Ban, CheckCheck, RotateCcw, Palmtree, Zap } from "lucide-react";
 import ForcarPontoModal from "./ForcarPontoModal";
 
 interface LinhaGestao {
@@ -15,6 +15,7 @@ interface LinhaGestao {
   situacao: string;
   statusRegisto: string | null;
   totalHoras: number;
+  horasExtra: number;
 }
 
 const CORES_SITUACAO: Record<string, string> = {
@@ -22,6 +23,7 @@ const CORES_SITUACAO: Record<string, string> = {
   Incompleto: "bg-amber-50 text-amber-700",
   Falta: "bg-rose-50 text-rose-700",
   Folga: "bg-slate-100 text-slate-600",
+  Férias: "bg-indigo-50 text-indigo-700",
   "Sem registo": "bg-slate-50 text-slate-400",
 };
 
@@ -62,6 +64,7 @@ export default function GestaoPontoManager() {
           situacao: r?.situacao ?? "Sem registo",
           statusRegisto: r?.status_registo ?? null,
           totalHoras: r?.total_horas ?? 0,
+          horasExtra: r?.horas_extra ?? 0,
         };
       })
     );
@@ -128,6 +131,7 @@ export default function GestaoPontoManager() {
       saida: "Saída forçada",
       falta: "Falta marcada",
       folga: "Folga marcada",
+      ferias: "Férias marcadas",
     };
     setMensagem({ tipo: "sucesso", texto: `${rotulos[tipo]} para ${selecionados.size} funcionário(s).` });
     carregar();
@@ -169,7 +173,7 @@ export default function GestaoPontoManager() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-900">Gestão de Ponto</h1>
-        <p className="text-sm text-slate-500">Forçar entradas/saídas, marcar faltas ou folgas — individual ou em massa.</p>
+        <p className="text-sm text-slate-500">Forçar entradas/saídas, marcar faltas, folgas ou férias — individual ou em massa.</p>
       </div>
 
       <div className="mb-6 flex flex-wrap items-end gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
@@ -209,6 +213,13 @@ export default function GestaoPontoManager() {
             className="flex items-center gap-1.5 rounded-lg bg-slate-600 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
           >
             <CalendarOff size={16} /> Marcar Folga
+          </button>
+          <button
+            disabled={aProcessar}
+            onClick={() => aplicar("ferias", true, null)}
+            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+          >
+            <Palmtree size={16} /> Marcar Férias
           </button>
           <button
             disabled={aProcessar}
@@ -337,8 +348,15 @@ export default function GestaoPontoManager() {
                           <span className="ml-1.5 text-xs text-slate-400">{ROTULOS_STATUS[l.statusRegisto]}</span>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 text-right font-medium text-slate-700">
-                        {l.totalHoras > 0 ? `${l.totalHoras.toFixed(2)}h` : "—"}
+                      <td className="px-4 py-2.5 text-right">
+                        <span className="font-medium text-slate-700">
+                          {l.totalHoras > 0 ? `${l.totalHoras.toFixed(2)}h` : "—"}
+                        </span>
+                        {l.horasExtra > 0 && (
+                          <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-orange-50 px-1.5 py-0.5 text-[11px] font-semibold text-orange-700">
+                            <Zap size={10} /> +{l.horasExtra.toFixed(2)}h
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

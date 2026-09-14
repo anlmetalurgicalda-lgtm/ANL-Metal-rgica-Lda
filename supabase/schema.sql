@@ -22,6 +22,11 @@ do $$ begin
   create type ponto_tipo as enum ('entrada', 'saida', 'falta', 'folga');
 exception when duplicate_object then null; end $$;
 
+-- Adicionado depois da versão inicial: dia de férias, distinto de folga
+-- (ambos "fecham" o dia sem entrada/saída, mas contam de forma diferente
+-- para efeitos de relatório/pagamento). Seguro correr novamente.
+alter type ponto_tipo add value if not exists 'ferias';
+
 do $$ begin
   create type registo_status as enum ('normal', 'atraso', 'forcado');
 exception when duplicate_object then null; end $$;
@@ -148,7 +153,7 @@ create table if not exists public.registos_ponto (
   funcionario_id  uuid not null references public.funcionarios(id) on delete cascade,
   data            date not null,                 -- dia de referência (Europe/Lisbon)
   tipo            ponto_tipo not null,
-  hora_registo    timestamptz,                    -- nulo para falta/folga
+  hora_registo    timestamptz,                    -- nulo para falta/folga/ferias
   status          registo_status,
   forcado_por     uuid references public.admins(id),
   observacao      text,
@@ -159,7 +164,7 @@ create table if not exists public.registos_ponto (
 create index if not exists idx_registos_funcionario_data on public.registos_ponto (funcionario_id, data);
 create index if not exists idx_registos_data on public.registos_ponto (data);
 
--- Impede combinações inválidas: não pode haver falta/folga no mesmo dia que entrada/saida
+-- Impede combinações inválidas: não pode haver falta/folga/ferias no mesmo dia que entrada/saida
 create or replace function public.validar_registo_ponto()
 returns trigger
 language plpgsql
@@ -167,12 +172,12 @@ as $$
 declare
   v_existe_oposto boolean;
 begin
-  if new.tipo in ('falta', 'folga') then
+  if new.tipo in ('falta', 'folga', 'ferias') then
     select exists (
       select 1 from public.registos_ponto
       where funcionario_id = new.funcionario_id
         and data = new.data
-        and tipo in ('entrada', 'saida', 'falta', 'folga')
+        and tipo in ('entrada', 'saida', 'falta', 'folga', 'ferias')
         and tipo <> new.tipo
         and id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000')
     ) into v_existe_oposto;
@@ -181,7 +186,7 @@ begin
       select 1 from public.registos_ponto
       where funcionario_id = new.funcionario_id
         and data = new.data
-        and tipo in ('falta', 'folga')
+        and tipo in ('falta', 'folga', 'ferias')
         and id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000')
     ) into v_existe_oposto;
   end if;
@@ -358,7 +363,7 @@ begin
 
   if exists (
     select 1 from public.registos_ponto
-    where funcionario_id = p_funcionario_id and data = v_data_local and tipo in ('falta', 'folga')
+    where funcionario_id = p_funcionario_id and data = v_data_local and tipo in ('falta', 'folga', 'ferias')
   ) then
     return jsonb_build_object('sucesso', false, 'erro', 'dia_marcado_falta_folga');
   end if;
@@ -455,18 +460,19 @@ begin
     select * from public.funcionarios where id = any(p_funcionario_ids) and ativo = true
   loop
     -- Remove registos incompatíveis com o novo tipo (ex.: mudar de "folga" para
-    -- "entrada", ou de "falta" para "folga") para não colidir com o trigger
-    -- trg_validar_registo_ponto, que impede entrada/saida coexistirem com falta/folga.
+    -- "entrada", ou de "falta" para "ferias") para não colidir com o trigger
+    -- trg_validar_registo_ponto, que impede entrada/saida coexistirem com
+    -- falta/folga/ferias.
     if p_tipo in ('entrada', 'saida') then
       delete from public.registos_ponto
-      where funcionario_id = v_funcionario.id and data = p_data and tipo in ('falta', 'folga');
+      where funcionario_id = v_funcionario.id and data = p_data and tipo in ('falta', 'folga', 'ferias');
     else
       delete from public.registos_ponto
       where funcionario_id = v_funcionario.id and data = p_data
-        and tipo in ('entrada', 'saida', 'falta', 'folga') and tipo <> p_tipo;
+        and tipo in ('entrada', 'saida', 'falta', 'folga', 'ferias') and tipo <> p_tipo;
     end if;
 
-    if p_tipo in ('falta', 'folga') then
+    if p_tipo in ('falta', 'folga', 'ferias') then
       v_timestamp := null;
       v_status := null;
     else
@@ -508,7 +514,7 @@ grant execute on function public.forcar_ponto_admin(uuid[], ponto_tipo, date, bo
 
 -- ---------------------------------------------------------------------------
 -- 12-B. FUNÇÃO RPC: limpar_ponto_admin ("Voltar ao normal")
---     Remove todos os registos (entrada/saida/falta/folga) de um dia para os
+--     Remove todos os registos (entrada/saida/falta/folga/ferias) de um dia para os
 --     colaboradores indicados, repondo o estado para "Sem registo" — como se
 --     nenhuma ação tivesse sido feita nesse dia.
 -- ---------------------------------------------------------------------------
@@ -675,7 +681,7 @@ begin
     if not exists (
       select 1 from public.registos_ponto
       where funcionario_id = v_funcionario.id and data = p_data
-        and tipo in ('entrada', 'falta', 'folga')
+        and tipo in ('entrada', 'falta', 'folga', 'ferias')
     ) then
       insert into public.registos_ponto (funcionario_id, data, tipo, hora_registo, status)
       values (v_funcionario.id, p_data, 'falta', null, null)
@@ -755,8 +761,12 @@ grant select on public.vw_registos_detalhados to authenticated;
 --     Devolve uma linha por colaborador/dia dentro do período, já pronta
 --     para tabela/exportação Excel. Aceita uma lista de colaboradores (para
 --     o seletor por nome/foto com multi-seleção no painel); null = todos.
+--     Inclui também horas_contrato/horas_extra: sempre que um dia trabalhado
+--     ultrapassa as horas do horário previsto do funcionário, a diferença
+--     conta como hora extra (nunca negativa).
 -- ---------------------------------------------------------------------------
 drop function if exists public.obter_relatorio_ponto(date, date, uuid);
+drop function if exists public.obter_relatorio_ponto(date, date, uuid[]);
 
 create or replace function public.obter_relatorio_ponto(
   p_data_inicio date,
@@ -772,7 +782,9 @@ returns table (
   hora_saida          text,
   situacao            text,
   status_registo      text,
-  total_horas         numeric
+  total_horas         numeric,
+  horas_contrato      numeric,
+  horas_extra         numeric
 )
 language sql
 stable
@@ -789,6 +801,7 @@ as $$
     case
       when fal.id is not null then 'Falta'
       when fol.id is not null then 'Folga'
+      when fer.id is not null then 'Férias'
       when e.id is not null and s.id is not null then 'Trabalhado'
       when e.id is not null and s.id is null then 'Incompleto'
       else 'Sem registo'
@@ -798,7 +811,17 @@ as $$
       when e.hora_registo is not null and s.hora_registo is not null
         then round((extract(epoch from (s.hora_registo - e.hora_registo)) / 3600.0)::numeric, 2)
       else 0
-    end as total_horas
+    end as total_horas,
+    round((extract(epoch from (f.hora_saida_padrao - f.hora_entrada_padrao)) / 3600.0)::numeric, 2) as horas_contrato,
+    case
+      when e.hora_registo is not null and s.hora_registo is not null then
+        greatest(
+          round((extract(epoch from (s.hora_registo - e.hora_registo)) / 3600.0)::numeric, 2)
+            - round((extract(epoch from (f.hora_saida_padrao - f.hora_entrada_padrao)) / 3600.0)::numeric, 2),
+          0
+        )
+      else 0
+    end as horas_extra
   from public.funcionarios f
   cross join lateral generate_series(p_data_inicio, p_data_fim, interval '1 day') as d(data)
   left join public.registos_ponto e
@@ -809,11 +832,13 @@ as $$
     on fal.funcionario_id = f.id and fal.data = d.data and fal.tipo = 'falta'
   left join public.registos_ponto fol
     on fol.funcionario_id = f.id and fol.data = d.data and fol.tipo = 'folga'
+  left join public.registos_ponto fer
+    on fer.funcionario_id = f.id and fer.data = d.data and fer.tipo = 'ferias'
   where public.is_admin()
     and (p_funcionario_ids is null or f.id = any(p_funcionario_ids))
     and (
       extract(isodow from d.data)::int = any(f.dias_trabalho)
-      or e.id is not null or s.id is not null or fal.id is not null or fol.id is not null
+      or e.id is not null or s.id is not null or fal.id is not null or fol.id is not null or fer.id is not null
     )
   order by f.nome_completo, d.data;
 $$;
