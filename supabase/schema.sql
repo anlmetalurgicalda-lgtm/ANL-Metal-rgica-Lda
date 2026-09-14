@@ -25,7 +25,14 @@ exception when duplicate_object then null; end $$;
 -- Adicionado depois da versão inicial: dia de férias, distinto de folga
 -- (ambos "fecham" o dia sem entrada/saída, mas contam de forma diferente
 -- para efeitos de relatório/pagamento). Seguro correr novamente.
+--
+-- O commit a seguir é necessário: o Postgres não deixa usar um valor de
+-- enum novo na mesma transação em que foi criado, e o SQL Editor do
+-- Supabase corre o script inteiro como uma única transação. Sem este
+-- commit, qualquer uso de 'ferias' mais abaixo neste mesmo script falha
+-- com "unsafe use of new value of enum type".
 alter type ponto_tipo add value if not exists 'ferias';
+commit;
 
 do $$ begin
   create type registo_status as enum ('normal', 'atraso', 'forcado');
