@@ -51,6 +51,7 @@ export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
     const mensagens: Record<string, string> = {
       funcionario_nao_encontrado: "Funcionário não encontrado.",
       ja_registado: `Já existe um registo de ${tipo === "entrada" ? "entrada" : "saída"} hoje.`,
+      saida_sem_entrada: "Ainda não registou a entrada hoje. Registe primeiro a entrada.",
       dia_marcado_falta_folga: "Este dia já está marcado como falta ou folga.",
       fora_da_tolerancia:
         data?.mensagem ??

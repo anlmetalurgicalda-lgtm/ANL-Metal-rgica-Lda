@@ -78,8 +78,6 @@ export interface LinhaRelatorioPonto {
   situacao: "Trabalhado" | "Incompleto" | "Falta" | "Folga" | "Férias" | "Sem registo";
   status_registo: RegistoStatus | null;
   total_horas: number;
-  horas_contrato: number;
-  horas_extra: number;
 }
 
 export interface Admin {

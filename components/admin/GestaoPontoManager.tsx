@@ -5,7 +5,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { Funcionario, LinhaRelatorioPonto, PontoTipo } from "@/lib/types";
 import { dataLisboaISO } from "@/lib/timezone";
-import { User, LogIn, LogOut, CalendarOff, Ban, CheckCheck, RotateCcw, Palmtree, Zap } from "lucide-react";
+import { User, LogIn, LogOut, CalendarOff, Ban, CheckCheck, RotateCcw, Palmtree } from "lucide-react";
 import ForcarPontoModal from "./ForcarPontoModal";
 
 interface LinhaGestao {
@@ -15,7 +15,6 @@ interface LinhaGestao {
   situacao: string;
   statusRegisto: string | null;
   totalHoras: number;
-  horasExtra: number;
 }
 
 const CORES_SITUACAO: Record<string, string> = {
@@ -64,7 +63,6 @@ export default function GestaoPontoManager() {
           situacao: r?.situacao ?? "Sem registo",
           statusRegisto: r?.status_registo ?? null,
           totalHoras: r?.total_horas ?? 0,
-          horasExtra: r?.horas_extra ?? 0,
         };
       })
     );
@@ -348,15 +346,8 @@ export default function GestaoPontoManager() {
                           <span className="ml-1.5 text-xs text-slate-400">{ROTULOS_STATUS[l.statusRegisto]}</span>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <span className="font-medium text-slate-700">
-                          {l.totalHoras > 0 ? `${l.totalHoras.toFixed(2)}h` : "—"}
-                        </span>
-                        {l.horasExtra > 0 && (
-                          <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-orange-50 px-1.5 py-0.5 text-[11px] font-semibold text-orange-700">
-                            <Zap size={10} /> +{l.horasExtra.toFixed(2)}h
-                          </span>
-                        )}
+                      <td className="px-4 py-2.5 text-right font-medium text-slate-700">
+                        {l.totalHoras > 0 ? `${l.totalHoras.toFixed(2)}h` : "—"}
                       </td>
                     </tr>
                   );

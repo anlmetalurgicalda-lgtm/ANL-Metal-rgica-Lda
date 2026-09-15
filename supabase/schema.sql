@@ -368,6 +368,13 @@ begin
     return jsonb_build_object('sucesso', false, 'erro', 'ja_registado');
   end if;
 
+  if p_tipo = 'saida' and not exists (
+    select 1 from public.registos_ponto
+    where funcionario_id = p_funcionario_id and data = v_data_local and tipo = 'entrada'
+  ) then
+    return jsonb_build_object('sucesso', false, 'erro', 'saida_sem_entrada');
+  end if;
+
   if exists (
     select 1 from public.registos_ponto
     where funcionario_id = p_funcionario_id and data = v_data_local and tipo in ('falta', 'folga', 'ferias')
@@ -768,9 +775,6 @@ grant select on public.vw_registos_detalhados to authenticated;
 --     Devolve uma linha por colaborador/dia dentro do período, já pronta
 --     para tabela/exportação Excel. Aceita uma lista de colaboradores (para
 --     o seletor por nome/foto com multi-seleção no painel); null = todos.
---     Inclui também horas_contrato/horas_extra: sempre que um dia trabalhado
---     ultrapassa as horas do horário previsto do funcionário, a diferença
---     conta como hora extra (nunca negativa).
 -- ---------------------------------------------------------------------------
 drop function if exists public.obter_relatorio_ponto(date, date, uuid);
 drop function if exists public.obter_relatorio_ponto(date, date, uuid[]);
@@ -789,9 +793,7 @@ returns table (
   hora_saida          text,
   situacao            text,
   status_registo      text,
-  total_horas         numeric,
-  horas_contrato      numeric,
-  horas_extra         numeric
+  total_horas         numeric
 )
 language sql
 stable
@@ -818,17 +820,7 @@ as $$
       when e.hora_registo is not null and s.hora_registo is not null
         then round((extract(epoch from (s.hora_registo - e.hora_registo)) / 3600.0)::numeric, 2)
       else 0
-    end as total_horas,
-    round((extract(epoch from (f.hora_saida_padrao - f.hora_entrada_padrao)) / 3600.0)::numeric, 2) as horas_contrato,
-    case
-      when e.hora_registo is not null and s.hora_registo is not null then
-        greatest(
-          round((extract(epoch from (s.hora_registo - e.hora_registo)) / 3600.0)::numeric, 2)
-            - round((extract(epoch from (f.hora_saida_padrao - f.hora_entrada_padrao)) / 3600.0)::numeric, 2),
-          0
-        )
-      else 0
-    end as horas_extra
+    end as total_horas
   from public.funcionarios f
   cross join lateral generate_series(p_data_inicio, p_data_fim, interval '1 day') as d(data)
   left join public.registos_ponto e
