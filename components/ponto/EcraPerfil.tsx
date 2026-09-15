@@ -182,7 +182,7 @@ export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
       <button
         disabled={aEnviar}
         onClick={() => registar(tipo)}
-        className={`group relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl active:scale-95 disabled:pointer-events-none disabled:opacity-60 ${classesGradiente} ${
+        className={`group relative flex w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl px-4 font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl active:scale-95 disabled:pointer-events-none disabled:opacity-60 ${classesGradiente} ${
           compacto ? "py-7" : "py-9"
         }`}
       >
