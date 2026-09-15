@@ -235,8 +235,8 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
                         <th className="px-3 py-2">Data</th>
                         <th className="px-3 py-2">Dia</th>
                         <th className="px-3 py-2">Clock In</th>
-                        <th className="px-3 py-2">Lunch Out</th>
                         <th className="px-3 py-2">Lunch In</th>
+                        <th className="px-3 py-2">Lunch Out</th>
                         <th className="px-3 py-2">Clock Out</th>
                         <th className="px-3 py-2">Situação</th>
                         <th className="px-3 py-2 text-right">Horas</th>

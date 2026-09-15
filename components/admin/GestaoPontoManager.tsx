@@ -132,8 +132,8 @@ export default function GestaoPontoManager() {
 
     const rotulos: Record<PontoTipo, string> = {
       entrada: "Clock In forçado",
-      saida_almoco: "Lunch Out forçado",
-      retorno_almoco: "Lunch In forçado",
+      saida_almoco: "Lunch In forçado",
+      retorno_almoco: "Lunch Out forçado",
       saida: "Clock Out forçado",
       falta: "Falta marcada",
       folga: "Folga marcada",
@@ -206,13 +206,13 @@ export default function GestaoPontoManager() {
             onClick={() => pedirForcar("saida_almoco")}
             className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700"
           >
-            <Utensils size={16} /> Forçar Lunch Out
+            <Utensils size={16} /> Forçar Lunch In
           </button>
           <button
             onClick={() => pedirForcar("retorno_almoco")}
             className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white hover:bg-teal-700"
           >
-            <Coffee size={16} /> Forçar Lunch In
+            <Coffee size={16} /> Forçar Lunch Out
           </button>
           <button
             onClick={() => pedirForcar("saida")}
@@ -298,8 +298,8 @@ export default function GestaoPontoManager() {
                 <th className="px-4 py-2">Funcionário</th>
                 <th className="px-4 py-2">Horário previsto</th>
                 <th className="px-4 py-2">Clock In</th>
-                <th className="px-4 py-2">Lunch Out</th>
                 <th className="px-4 py-2">Lunch In</th>
+                <th className="px-4 py-2">Lunch Out</th>
                 <th className="px-4 py-2">Clock Out</th>
                 <th className="px-4 py-2">Situação</th>
                 <th className="px-4 py-2 text-right">Horas</th>

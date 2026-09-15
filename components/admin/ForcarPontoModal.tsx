@@ -25,7 +25,7 @@ const ESTILOS: Record<TipoForcar, { rotulo: string; icon: typeof LogIn; icone: s
     temHorarioPredefinido: true,
   },
   saida_almoco: {
-    rotulo: "Lunch Out",
+    rotulo: "Lunch In",
     icon: Utensils,
     icone: "bg-amber-50 text-amber-600",
     botao: "bg-amber-600 hover:bg-amber-700",
@@ -33,7 +33,7 @@ const ESTILOS: Record<TipoForcar, { rotulo: string; icon: typeof LogIn; icone: s
     temHorarioPredefinido: false,
   },
   retorno_almoco: {
-    rotulo: "Lunch In",
+    rotulo: "Lunch Out",
     icon: Coffee,
     icone: "bg-teal-50 text-teal-600",
     botao: "bg-teal-600 hover:bg-teal-700",

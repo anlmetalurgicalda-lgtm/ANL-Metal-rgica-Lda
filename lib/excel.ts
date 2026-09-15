@@ -244,7 +244,7 @@ export async function exportarRelatorioExcel(
     estilizarCabecalhoTabela(
       folha,
       linhaTabela,
-      ["Data", "Dia da Semana", "Clock In", "Lunch Out", "Lunch In", "Clock Out", "Situação", "Total de Horas"],
+      ["Data", "Dia da Semana", "Clock In", "Lunch In", "Lunch Out", "Clock Out", "Situação", "Total de Horas"],
       ["left", "left", "left", "left", "left", "left", "left", "right"]
     );
 

@@ -34,12 +34,12 @@ const ACOES: Record<AcaoPonto, { rotulo: string; icon: typeof LogIn; classesGrad
     classesGradiente: "bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-emerald-600/30 hover:shadow-emerald-600/40",
   },
   saida_almoco: {
-    rotulo: "Lunch Out",
+    rotulo: "Lunch In",
     icon: Utensils,
     classesGradiente: "bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-600/30 hover:shadow-amber-600/40",
   },
   retorno_almoco: {
-    rotulo: "Lunch In",
+    rotulo: "Lunch Out",
     icon: Coffee,
     classesGradiente: "bg-gradient-to-br from-teal-500 to-cyan-700 shadow-teal-600/30 hover:shadow-teal-600/40",
   },
@@ -60,31 +60,40 @@ export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
   const [modoFoto, setModoFoto] = useState(false);
   const [ficheiroFoto, setFicheiroFoto] = useState<File | null>(null);
 
-  useEffect(() => {
-    supabase
-      .rpc("obter_estado_ponto_hoje_kiosk", { p_funcionario_id: funcionario.id, p_senha: senha })
-      .then(({ data }) => {
-        if (!data?.sucesso) {
-          setOpcoes([]);
-          setACarregarEstado(false);
-          return;
-        }
+  async function carregarEstado() {
+    setACarregarEstado(true);
+    const { data } = await supabase.rpc("obter_estado_ponto_hoje_kiosk", {
+      p_funcionario_id: funcionario.id,
+      p_senha: senha,
+    });
 
-        if (data.dia_fechado) {
-          setDiaFechado(true);
-        } else if (!data.entrada) {
-          setOpcoes(["entrada"]);
-        } else if (data.saida) {
-          setOpcoes([]);
-        } else if (data.saida_almoco && !data.retorno_almoco) {
-          setOpcoes(["retorno_almoco"]);
-        } else if (!data.saida_almoco) {
-          setOpcoes(["saida_almoco", "saida"]);
-        } else {
-          setOpcoes(["saida"]);
-        }
-        setACarregarEstado(false);
-      });
+    if (!data?.sucesso) {
+      setDiaFechado(false);
+      setOpcoes([]);
+      setACarregarEstado(false);
+      return;
+    }
+
+    setDiaFechado(Boolean(data.dia_fechado));
+
+    if (data.dia_fechado) {
+      setOpcoes([]);
+    } else if (!data.entrada) {
+      setOpcoes(["entrada"]);
+    } else if (data.saida) {
+      setOpcoes([]);
+    } else if (data.saida_almoco && !data.retorno_almoco) {
+      setOpcoes(["retorno_almoco"]);
+    } else if (!data.saida_almoco) {
+      setOpcoes(["saida_almoco", "saida"]);
+    } else {
+      setOpcoes(["saida"]);
+    }
+    setACarregarEstado(false);
+  }
+
+  useEffect(() => {
+    carregarEstado();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -110,7 +119,7 @@ export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
         sucesso: true,
         mensagem: `${ACOES[tipo].rotulo} registado às ${data.hora}.`,
       });
-      setTimeout(onSair, 2000);
+      carregarEstado();
       return;
     }
 
@@ -119,7 +128,7 @@ export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
       ja_registado: "Já existe esse registo hoje.",
       requer_entrada: "Ainda não fez Clock In hoje. Registe primeiro a entrada.",
       requer_saida_almoco: "Ainda não saiu para almoço hoje.",
-      almoco_em_curso: "Ainda não registou a volta do almoço. Registe primeiro o Lunch In.",
+      almoco_em_curso: "Ainda não registou a volta do almoço. Registe primeiro o Lunch Out.",
       dia_marcado_falta_folga: "Este dia já está marcado como falta, folga ou férias.",
       fora_da_tolerancia:
         data?.mensagem ??
