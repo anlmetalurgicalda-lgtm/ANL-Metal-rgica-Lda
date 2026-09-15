@@ -352,8 +352,6 @@ declare
   v_agora_lisboa  timestamp;
   v_data_local    date;
   v_hora_prevista time;
-  v_tolerancia    int;
-  v_limite        timestamp;
   v_status        registo_status;
   v_tem_entrada        boolean;
   v_tem_saida_almoco    boolean;
@@ -371,9 +369,6 @@ begin
   if v_funcionario.senha_hash <> crypt(p_senha, v_funcionario.senha_hash) then
     return jsonb_build_object('sucesso', false, 'erro', 'senha_incorreta');
   end if;
-
-  select tolerancia_minutos into v_tolerancia from public.configuracoes_empresa where id = 1;
-  v_tolerancia := coalesce(v_tolerancia, 20);
 
   v_agora_lisboa := v_agora at time zone 'Europe/Lisbon';
   v_data_local := v_agora_lisboa::date;
@@ -431,26 +426,8 @@ begin
     else v_funcionario.hora_saida_padrao
   end;
 
-  v_limite := v_data_local + v_hora_prevista + make_interval(mins => v_tolerancia);
-
-  if v_agora_lisboa > v_limite then
-    insert into public.notificacoes (tipo, funcionario_id, titulo, mensagem, metadata)
-    values (
-      'atraso_bloqueado',
-      p_funcionario_id,
-      'Registo de ponto bloqueado por atraso',
-      v_funcionario.nome_completo || ' tentou registar "' || p_tipo || '" às ' ||
-        to_char(v_agora_lisboa, 'HH24:MI') || ', fora da tolerância de ' || v_tolerancia || ' minutos.',
-      jsonb_build_object('tipo_registo', p_tipo, 'hora_tentativa', v_agora_lisboa, 'hora_prevista', v_hora_prevista)
-    );
-
-    return jsonb_build_object(
-      'sucesso', false,
-      'erro', 'fora_da_tolerancia',
-      'mensagem', 'Já passou o limite de tolerância (' || v_tolerancia || ' minutos). Apenas o Administrador pode forçar este registo.'
-    );
-  end if;
-
+  -- Sem bloqueio por tolerância: os funcionários podem bater o ponto a
+  -- qualquer hora. O estado "atraso" fica apenas registado para informação.
   v_status := case when v_agora_lisboa::time > v_hora_prevista then 'atraso' else 'normal' end;
 
   insert into public.registos_ponto (funcionario_id, data, tipo, hora_registo, status)
