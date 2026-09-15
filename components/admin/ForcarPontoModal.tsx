@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { formatarDataPT } from "@/lib/timezone";
-import { LogIn, LogOut, Loader2, X } from "lucide-react";
+import { LogIn, LogOut, Loader2, X, Utensils, Coffee } from "lucide-react";
+
+type TipoForcar = "entrada" | "saida_almoco" | "retorno_almoco" | "saida";
 
 interface Props {
-  tipo: "entrada" | "saida";
+  tipo: TipoForcar;
   quantidade: number;
   data: string;
   aProcessar: boolean;
@@ -13,22 +15,46 @@ interface Props {
   onConfirmar: (usarHorarioPadrao: boolean, horaCustomizada: string | null) => void;
 }
 
-const ESTILOS = {
+const ESTILOS: Record<TipoForcar, { rotulo: string; icon: typeof LogIn; icone: string; botao: string; horaDefeito: string; temHorarioPredefinido: boolean }> = {
   entrada: {
+    rotulo: "Clock In",
+    icon: LogIn,
     icone: "bg-emerald-50 text-emerald-600",
     botao: "bg-emerald-600 hover:bg-emerald-700",
+    horaDefeito: "08:00",
+    temHorarioPredefinido: true,
+  },
+  saida_almoco: {
+    rotulo: "Lunch Out",
+    icon: Utensils,
+    icone: "bg-amber-50 text-amber-600",
+    botao: "bg-amber-600 hover:bg-amber-700",
+    horaDefeito: "12:00",
+    temHorarioPredefinido: false,
+  },
+  retorno_almoco: {
+    rotulo: "Lunch In",
+    icon: Coffee,
+    icone: "bg-teal-50 text-teal-600",
+    botao: "bg-teal-600 hover:bg-teal-700",
+    horaDefeito: "13:00",
+    temHorarioPredefinido: false,
   },
   saida: {
+    rotulo: "Clock Out",
+    icon: LogOut,
     icone: "bg-rose-50 text-rose-600",
     botao: "bg-rose-600 hover:bg-rose-700",
+    horaDefeito: "19:00",
+    temHorarioPredefinido: true,
   },
-} as const;
+};
 
 export default function ForcarPontoModal({ tipo, quantidade, data, aProcessar, onFechar, onConfirmar }: Props) {
-  const [usarHorarioPadrao, setUsarHorarioPadrao] = useState(true);
-  const [horaCustomizada, setHoraCustomizada] = useState(tipo === "entrada" ? "08:00" : "19:00");
-
   const estilo = ESTILOS[tipo];
+  const [usarHorarioPadrao, setUsarHorarioPadrao] = useState(estilo.temHorarioPredefinido);
+  const [horaCustomizada, setHoraCustomizada] = useState(estilo.horaDefeito);
+  const Icon = estilo.icon;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
@@ -36,10 +62,10 @@ export default function ForcarPontoModal({ tipo, quantidade, data, aProcessar, o
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${estilo.icone}`}>
-              {tipo === "entrada" ? <LogIn size={20} /> : <LogOut size={20} />}
+              <Icon size={20} />
             </span>
             <div>
-              <h2 className="font-semibold text-slate-900">Forçar {tipo === "entrada" ? "Entrada" : "Saída"}</h2>
+              <h2 className="font-semibold text-slate-900">Forçar {estilo.rotulo}</h2>
               <p className="text-xs text-slate-500">
                 {quantidade} funcionário(s) · {formatarDataPT(data)}
               </p>
@@ -50,21 +76,21 @@ export default function ForcarPontoModal({ tipo, quantidade, data, aProcessar, o
           </button>
         </div>
 
-        <label className="mb-4 flex items-center gap-2 text-sm text-slate-700">
-          <input
-            type="checkbox"
-            checked={usarHorarioPadrao}
-            onChange={(e) => setUsarHorarioPadrao(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300"
-          />
-          Usar horários predefinidos de cada funcionário
-        </label>
+        {estilo.temHorarioPredefinido && (
+          <label className="mb-4 flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={usarHorarioPadrao}
+              onChange={(e) => setUsarHorarioPadrao(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            Usar horários predefinidos de cada funcionário
+          </label>
+        )}
 
-        {!usarHorarioPadrao && (
+        {(!estilo.temHorarioPredefinido || !usarHorarioPadrao) && (
           <div className="mb-4">
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Hora exata de {tipo === "entrada" ? "entrada" : "saída"}
-            </label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Hora exata de {estilo.rotulo}</label>
             <input
               type="time"
               value={horaCustomizada}
@@ -81,7 +107,12 @@ export default function ForcarPontoModal({ tipo, quantidade, data, aProcessar, o
           </button>
           <button
             disabled={aProcessar}
-            onClick={() => onConfirmar(usarHorarioPadrao, usarHorarioPadrao ? null : horaCustomizada)}
+            onClick={() =>
+              onConfirmar(
+                estilo.temHorarioPredefinido && usarHorarioPadrao,
+                estilo.temHorarioPredefinido && usarHorarioPadrao ? null : horaCustomizada
+              )
+            }
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60 ${estilo.botao}`}
           >
             {aProcessar && <Loader2 className="animate-spin" size={16} />}

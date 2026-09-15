@@ -83,7 +83,7 @@ export default function AtividadeHojeTable() {
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
         <div>
           <h2 className="font-semibold text-slate-900">Atividade de hoje</h2>
-          <p className="text-sm text-slate-500">Entrada e saída de cada funcionário, em tempo real.</p>
+          <p className="text-sm text-slate-500">Clock In e Clock Out de cada funcionário, em tempo real.</p>
         </div>
         <Clock size={18} className="text-slate-400" />
       </div>
@@ -95,7 +95,7 @@ export default function AtividadeHojeTable() {
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
           </span>
           <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
-            Já registaram entrada · {formatarDataPT(dataLisboaISO())}
+            Já fizeram Clock In · {formatarDataPT(dataLisboaISO())}
           </p>
         </div>
 
@@ -118,7 +118,7 @@ export default function AtividadeHojeTable() {
             <span
               className={`h-1.5 w-1.5 rounded-full ${filtro === "sem_saida" ? "bg-white" : "bg-amber-400"}`}
             />
-            Sem saída
+            Sem Clock Out
             <span className={filtro === "sem_saida" ? "text-white/80" : "text-slate-400"}>{semSaida.length}</span>
           </button>
         </div>
@@ -129,7 +129,7 @@ export default function AtividadeHojeTable() {
 
         {!aCarregar && visiveis.length === 0 && (
           <p className="px-2 py-8 text-center text-sm text-slate-400">
-            {filtro === "sem_saida" ? "Todos os que entraram já registaram saída." : "Ainda não há registos hoje."}
+            {filtro === "sem_saida" ? "Todos os que fizeram Clock In já registaram Clock Out." : "Ainda não há registos hoje."}
           </p>
         )}
 

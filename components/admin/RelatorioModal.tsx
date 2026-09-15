@@ -229,13 +229,15 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
 
               {funcionarioAtivo && (
                 <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
-                  <table className="w-full min-w-[640px] text-sm">
+                  <table className="w-full min-w-[820px] text-sm">
                     <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                       <tr>
                         <th className="px-3 py-2">Data</th>
                         <th className="px-3 py-2">Dia</th>
-                        <th className="px-3 py-2">Entrada</th>
-                        <th className="px-3 py-2">Saída</th>
+                        <th className="px-3 py-2">Clock In</th>
+                        <th className="px-3 py-2">Lunch Out</th>
+                        <th className="px-3 py-2">Lunch In</th>
+                        <th className="px-3 py-2">Clock Out</th>
                         <th className="px-3 py-2">Situação</th>
                         <th className="px-3 py-2 text-right">Horas</th>
                       </tr>
@@ -246,6 +248,8 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
                           <td className="px-3 py-2 text-slate-700">{formatarDataPT(r.data)}</td>
                           <td className="px-3 py-2 text-slate-500">{nomeDiaSemanaPT(r.data)}</td>
                           <td className="px-3 py-2 text-slate-700">{r.hora_entrada ?? "—"}</td>
+                          <td className="px-3 py-2 text-slate-500">{r.hora_saida_almoco ?? "—"}</td>
+                          <td className="px-3 py-2 text-slate-500">{r.hora_retorno_almoco ?? "—"}</td>
                           <td className="px-3 py-2 text-slate-700">{r.hora_saida ?? "—"}</td>
                           <td className="px-3 py-2">
                             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CORES_SITUACAO[r.situacao]}`}>
@@ -258,7 +262,7 @@ export default function RelatorioModal({ dataInicio, dataFim, funcionarioIds, on
                     </tbody>
                     <tfoot>
                       <tr className="bg-slate-50 font-semibold text-slate-800">
-                        <td colSpan={5} className="px-3 py-2 text-right">
+                        <td colSpan={7} className="px-3 py-2 text-right">
                           Total do funcionário
                         </td>
                         <td className="px-3 py-2 text-right">{funcionarioAtivo.subtotal.toFixed(2)}h</td>

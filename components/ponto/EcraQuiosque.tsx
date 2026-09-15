@@ -125,7 +125,7 @@ export default function EcraQuiosque({ funcionarios }: { funcionarios: Funcionar
               <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-brand-700 shadow-sm ring-1 ring-brand-100">
                 <Users size={14} /> Quem é você?
               </span>
-              <p className="text-sm text-slate-500">Selecione a sua fotografia para registar entrada ou saída.</p>
+              <p className="text-sm text-slate-500">Selecione a sua fotografia para fazer Clock In ou Clock Out.</p>
             </div>
             <FuncionarioGrid
               funcionarios={funcionarios}

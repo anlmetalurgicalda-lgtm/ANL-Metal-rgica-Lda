@@ -230,8 +230,10 @@ export async function exportarRelatorioExcel(
     folha.columns = [
       { key: "data", width: 13 },
       { key: "dia", width: 17 },
-      { key: "entrada", width: 13 },
-      { key: "saida", width: 13 },
+      { key: "entrada", width: 12 },
+      { key: "saidaAlmoco", width: 12 },
+      { key: "retornoAlmoco", width: 12 },
+      { key: "saida", width: 12 },
       { key: "situacao", width: 14 },
       { key: "horas", width: 15 },
     ];
@@ -242,8 +244,8 @@ export async function exportarRelatorioExcel(
     estilizarCabecalhoTabela(
       folha,
       linhaTabela,
-      ["Data", "Dia da Semana", "Entrada", "Saída", "Situação", "Total de Horas"],
-      ["left", "left", "left", "left", "left", "right"]
+      ["Data", "Dia da Semana", "Clock In", "Lunch Out", "Lunch In", "Clock Out", "Situação", "Total de Horas"],
+      ["left", "left", "left", "left", "left", "left", "left", "right"]
     );
 
     let linhaAtual = linhaTabela + 1;
@@ -252,17 +254,19 @@ export async function exportarRelatorioExcel(
       linha.getCell(1).value = formatarDataPT(registo.data);
       linha.getCell(2).value = nomeDiaSemanaPT(registo.data);
       linha.getCell(3).value = registo.hora_entrada ?? "—";
-      linha.getCell(4).value = registo.hora_saida ?? "—";
-      linha.getCell(5).value = registo.situacao;
-      linha.getCell(6).value = Number((registo.total_horas || 0).toFixed(2));
-      linha.getCell(6).numFmt = '0.00"h"';
-      linha.getCell(6).alignment = { horizontal: "right" };
-      linha.getCell(5).fill = {
+      linha.getCell(4).value = registo.hora_saida_almoco ?? "—";
+      linha.getCell(5).value = registo.hora_retorno_almoco ?? "—";
+      linha.getCell(6).value = registo.hora_saida ?? "—";
+      linha.getCell(7).value = registo.situacao;
+      linha.getCell(8).value = Number((registo.total_horas || 0).toFixed(2));
+      linha.getCell(8).numFmt = '0.00"h"';
+      linha.getCell(8).alignment = { horizontal: "right" };
+      linha.getCell(7).fill = {
         type: "pattern",
         pattern: "solid",
         fgColor: { argb: CORES_SITUACAO[registo.situacao] ?? "FFFFFFFF" },
       };
-      for (let col = 1; col <= 6; col++) {
+      for (let col = 1; col <= 8; col++) {
         linha.getCell(col).border = BORDA_CELULA;
         linha.getCell(col).font = { size: 10 };
       }
@@ -270,13 +274,13 @@ export async function exportarRelatorioExcel(
     }
 
     const linhaSubtotal = folha.getRow(linhaAtual);
-    folha.mergeCells(linhaAtual, 1, linhaAtual, 5);
+    folha.mergeCells(linhaAtual, 1, linhaAtual, 7);
     linhaSubtotal.getCell(1).value = "Total do funcionário";
     linhaSubtotal.getCell(1).alignment = { horizontal: "right" };
-    linhaSubtotal.getCell(6).value = Number(grupo.subtotal.toFixed(2));
-    linhaSubtotal.getCell(6).numFmt = '0.00"h"';
-    linhaSubtotal.getCell(6).alignment = { horizontal: "right" };
-    for (let col = 1; col <= 6; col++) {
+    linhaSubtotal.getCell(8).value = Number(grupo.subtotal.toFixed(2));
+    linhaSubtotal.getCell(8).numFmt = '0.00"h"';
+    linhaSubtotal.getCell(8).alignment = { horizontal: "right" };
+    for (let col = 1; col <= 8; col++) {
       linhaSubtotal.getCell(col).font = { bold: true, size: 10, color: { argb: COR_TITULO } };
       linhaSubtotal.getCell(col).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_SUBTOTAL } };
       linhaSubtotal.getCell(col).border = BORDA_CELULA;

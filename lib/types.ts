@@ -1,4 +1,4 @@
-export type PontoTipo = "entrada" | "saida" | "falta" | "folga" | "ferias";
+export type PontoTipo = "entrada" | "saida" | "saida_almoco" | "retorno_almoco" | "falta" | "folga" | "ferias";
 export type RegistoStatus = "normal" | "atraso" | "forcado";
 export type NotificacaoTipo =
   | "foto_pendente"
@@ -74,6 +74,8 @@ export interface LinhaRelatorioPonto {
   numero_funcionario: string | null;
   data: string;
   hora_entrada: string | null;
+  hora_saida_almoco: string | null;
+  hora_retorno_almoco: string | null;
   hora_saida: string | null;
   situacao: "Trabalhado" | "Incompleto" | "Falta" | "Folga" | "Férias" | "Sem registo";
   status_registo: RegistoStatus | null;

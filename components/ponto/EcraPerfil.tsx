@@ -1,10 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { FuncionarioKiosk } from "@/lib/types";
-import { ArrowLeft, Camera, LogIn, LogOut, Loader2, User, CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  ArrowLeft,
+  Camera,
+  LogIn,
+  LogOut,
+  Loader2,
+  User,
+  CheckCircle2,
+  AlertTriangle,
+  Utensils,
+  Coffee,
+} from "lucide-react";
 import RelogioAoVivo from "./RelogioAoVivo";
 
 interface Props {
@@ -13,16 +24,71 @@ interface Props {
   onSair: () => void;
 }
 
+type AcaoPonto = "entrada" | "saida_almoco" | "retorno_almoco" | "saida";
 type Resultado = { sucesso: boolean; mensagem: string } | null;
+
+const ACOES: Record<AcaoPonto, { rotulo: string; icon: typeof LogIn; classesGradiente: string }> = {
+  entrada: {
+    rotulo: "Clock In",
+    icon: LogIn,
+    classesGradiente: "bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-emerald-600/30 hover:shadow-emerald-600/40",
+  },
+  saida_almoco: {
+    rotulo: "Lunch Out",
+    icon: Utensils,
+    classesGradiente: "bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-600/30 hover:shadow-amber-600/40",
+  },
+  retorno_almoco: {
+    rotulo: "Lunch In",
+    icon: Coffee,
+    classesGradiente: "bg-gradient-to-br from-teal-500 to-cyan-700 shadow-teal-600/30 hover:shadow-teal-600/40",
+  },
+  saida: {
+    rotulo: "Clock Out",
+    icon: LogOut,
+    classesGradiente: "bg-gradient-to-br from-rose-500 to-rose-700 shadow-rose-600/30 hover:shadow-rose-600/40",
+  },
+};
 
 export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
   const supabase = createClient();
+  const [aCarregarEstado, setACarregarEstado] = useState(true);
+  const [opcoes, setOpcoes] = useState<AcaoPonto[]>([]);
+  const [diaFechado, setDiaFechado] = useState(false);
   const [aEnviar, setAEnviar] = useState(false);
   const [resultado, setResultado] = useState<Resultado>(null);
   const [modoFoto, setModoFoto] = useState(false);
   const [ficheiroFoto, setFicheiroFoto] = useState<File | null>(null);
 
-  async function registar(tipo: "entrada" | "saida") {
+  useEffect(() => {
+    supabase
+      .rpc("obter_estado_ponto_hoje_kiosk", { p_funcionario_id: funcionario.id, p_senha: senha })
+      .then(({ data }) => {
+        if (!data?.sucesso) {
+          setOpcoes([]);
+          setACarregarEstado(false);
+          return;
+        }
+
+        if (data.dia_fechado) {
+          setDiaFechado(true);
+        } else if (!data.entrada) {
+          setOpcoes(["entrada"]);
+        } else if (data.saida) {
+          setOpcoes([]);
+        } else if (data.saida_almoco && !data.retorno_almoco) {
+          setOpcoes(["retorno_almoco"]);
+        } else if (!data.saida_almoco) {
+          setOpcoes(["saida_almoco", "saida"]);
+        } else {
+          setOpcoes(["saida"]);
+        }
+        setACarregarEstado(false);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function registar(tipo: AcaoPonto) {
     setAEnviar(true);
     setResultado(null);
 
@@ -42,7 +108,7 @@ export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
     if (data?.sucesso) {
       setResultado({
         sucesso: true,
-        mensagem: `${tipo === "entrada" ? "Entrada" : "Saída"} registada às ${data.hora}.`,
+        mensagem: `${ACOES[tipo].rotulo} registado às ${data.hora}.`,
       });
       setTimeout(onSair, 2000);
       return;
@@ -50,9 +116,11 @@ export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
 
     const mensagens: Record<string, string> = {
       funcionario_nao_encontrado: "Funcionário não encontrado.",
-      ja_registado: `Já existe um registo de ${tipo === "entrada" ? "entrada" : "saída"} hoje.`,
-      saida_sem_entrada: "Ainda não registou a entrada hoje. Registe primeiro a entrada.",
-      dia_marcado_falta_folga: "Este dia já está marcado como falta ou folga.",
+      ja_registado: "Já existe esse registo hoje.",
+      requer_entrada: "Ainda não fez Clock In hoje. Registe primeiro a entrada.",
+      requer_saida_almoco: "Ainda não saiu para almoço hoje.",
+      almoco_em_curso: "Ainda não registou a volta do almoço. Registe primeiro o Lunch In.",
+      dia_marcado_falta_folga: "Este dia já está marcado como falta, folga ou férias.",
       fora_da_tolerancia:
         data?.mensagem ??
         "Fora do tempo de tolerância permitido. Apenas o Administrador pode forçar este registo.",
@@ -108,6 +176,24 @@ export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
     setTimeout(onSair, 2200);
   }
 
+  function BotaoAcao({ tipo, compacto }: { tipo: AcaoPonto; compacto: boolean }) {
+    const { rotulo, icon: Icon, classesGradiente } = ACOES[tipo];
+    return (
+      <button
+        disabled={aEnviar}
+        onClick={() => registar(tipo)}
+        className={`group relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl active:scale-95 disabled:pointer-events-none disabled:opacity-60 ${classesGradiente} ${
+          compacto ? "py-7" : "py-9"
+        }`}
+      >
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30 transition-transform duration-300 group-hover:scale-110">
+          {aEnviar ? <Loader2 className="animate-spin" size={28} /> : <Icon size={28} />}
+        </span>
+        <span className="text-lg">{rotulo}</span>
+      </button>
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-md">
       <button
@@ -120,7 +206,6 @@ export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
       <div className="relative flex flex-col items-center overflow-hidden rounded-3xl bg-white/90 px-8 pb-8 pt-10 shadow-2xl shadow-brand-900/15 ring-1 ring-white/80 backdrop-blur-md">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-brand-50/80 to-transparent" />
 
-        {/* Cabeçalho do colaborador */}
         <div className="relative mb-4">
           <span className="absolute -inset-2 rounded-full bg-gradient-to-tr from-brand-500 to-indigo-500 opacity-25 blur-md" />
           <div className="relative h-28 w-28 overflow-hidden rounded-full bg-slate-100 ring-4 ring-white shadow-xl">
@@ -142,7 +227,6 @@ export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
         </p>
         <p className="relative mt-1 text-center text-sm text-slate-500">{funcionario.nome_completo}</p>
 
-        {/* Relógio em destaque */}
         <div className="relative my-6 w-full overflow-hidden rounded-2xl bg-gradient-to-br from-brand-900 via-brand-800 to-indigo-900 px-6 py-5 shadow-lg shadow-brand-900/30">
           <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
           <RelogioAoVivo escuro />
@@ -150,29 +234,36 @@ export default function EcraPerfil({ funcionario, senha, onSair }: Props) {
 
         {!modoFoto ? (
           <>
-            <p className="mb-3 text-center text-sm font-medium text-slate-500">O que pretende registar?</p>
-            <div className="grid w-full grid-cols-2 gap-4">
-              <button
-                disabled={aEnviar}
-                onClick={() => registar("entrada")}
-                className="group relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 py-7 font-semibold text-white shadow-lg shadow-emerald-600/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-600/40 active:scale-95 disabled:pointer-events-none disabled:opacity-60"
-              >
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30 transition-transform duration-300 group-hover:scale-110">
-                  {aEnviar ? <Loader2 className="animate-spin" size={28} /> : <LogIn size={28} />}
-                </span>
-                <span className="text-lg">Entrada</span>
-              </button>
-              <button
-                disabled={aEnviar}
-                onClick={() => registar("saida")}
-                className="group relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-rose-700 py-7 font-semibold text-white shadow-lg shadow-rose-600/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-rose-600/40 active:scale-95 disabled:pointer-events-none disabled:opacity-60"
-              >
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30 transition-transform duration-300 group-hover:scale-110">
-                  {aEnviar ? <Loader2 className="animate-spin" size={28} /> : <LogOut size={28} />}
-                </span>
-                <span className="text-lg">Saída</span>
-              </button>
-            </div>
+            {aCarregarEstado && (
+              <div className="flex items-center gap-2 py-6 text-sm text-slate-400">
+                <Loader2 className="animate-spin" size={16} /> A verificar o seu dia...
+              </div>
+            )}
+
+            {!aCarregarEstado && diaFechado && (
+              <p className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 ring-1 ring-slate-100">
+                Hoje já está marcado como falta, folga ou férias. Fale com o Administrador se não for correto.
+              </p>
+            )}
+
+            {!aCarregarEstado && !diaFechado && opcoes.length === 0 && (
+              <p className="rounded-2xl bg-emerald-50 px-4 py-6 text-center text-sm font-medium text-emerald-700 ring-1 ring-emerald-100">
+                Já concluiu o registo de hoje. Até à próxima!
+              </p>
+            )}
+
+            {!aCarregarEstado && !diaFechado && opcoes.length > 0 && (
+              <>
+                <p className="mb-3 text-center text-sm font-medium text-slate-500">
+                  {opcoes.length > 1 ? "O que pretende registar?" : "Toque para confirmar"}
+                </p>
+                <div className={opcoes.length > 1 ? "grid w-full grid-cols-2 gap-4" : "w-full"}>
+                  {opcoes.map((tipo) => (
+                    <BotaoAcao key={tipo} tipo={tipo} compacto={opcoes.length > 1} />
+                  ))}
+                </div>
+              </>
+            )}
 
             <button
               onClick={() => setModoFoto(true)}

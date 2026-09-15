@@ -34,6 +34,13 @@ exception when duplicate_object then null; end $$;
 alter type ponto_tipo add value if not exists 'ferias';
 commit;
 
+-- Adicionado para a pausa de almoço (1h): dois novos tipos de registo,
+-- "saida_almoco" (saída para almoço) e "retorno_almoco" (volta do almoço).
+-- Mesma exigência de commit explicado acima.
+alter type ponto_tipo add value if not exists 'saida_almoco';
+alter type ponto_tipo add value if not exists 'retorno_almoco';
+commit;
+
 do $$ begin
   create type registo_status as enum ('normal', 'atraso', 'forcado');
 exception when duplicate_object then null; end $$;
@@ -184,7 +191,7 @@ begin
       select 1 from public.registos_ponto
       where funcionario_id = new.funcionario_id
         and data = new.data
-        and tipo in ('entrada', 'saida', 'falta', 'folga', 'ferias')
+        and tipo in ('entrada', 'saida', 'saida_almoco', 'retorno_almoco', 'falta', 'folga', 'ferias')
         and tipo <> new.tipo
         and id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000')
     ) into v_existe_oposto;
@@ -319,8 +326,15 @@ grant execute on function public.enviar_foto_pendente_kiosk(uuid, text, text) to
 -- ---------------------------------------------------------------------------
 -- 10. FUNÇÃO RPC: registar_ponto_kiosk
 --     Chamada pelo ecrã de quiosque (chave anon). Valida a senha, aplica a
---     regra de tolerância de 20 minutos e insere o registo. Se o colaborador
---     tentar registar fora da tolerância, bloqueia e cria notificação.
+--     regra de tolerância de 20 minutos (só para entrada/saida — a pausa de
+--     almoço é opcional e sem horário fixo, por isso não tem tolerância) e
+--     insere o registo. Se o colaborador tentar registar entrada/saida fora
+--     da tolerância, bloqueia e cria notificação.
+--
+--     Ordem exigida no dia: entrada -> [saida_almoco -> retorno_almoco] -> saida.
+--     A pausa de almoço é opcional (pode saltar-se para adiantar serviço),
+--     mas se for iniciada (saida_almoco) tem de ser fechada (retorno_almoco)
+--     antes de se poder registar a saida final.
 -- ---------------------------------------------------------------------------
 create or replace function public.registar_ponto_kiosk(
   p_funcionario_id uuid,
@@ -341,8 +355,11 @@ declare
   v_tolerancia    int;
   v_limite        timestamp;
   v_status        registo_status;
+  v_tem_entrada        boolean;
+  v_tem_saida_almoco    boolean;
+  v_tem_retorno_almoco  boolean;
 begin
-  if p_tipo not in ('entrada', 'saida') then
+  if p_tipo not in ('entrada', 'saida', 'saida_almoco', 'retorno_almoco') then
     return jsonb_build_object('sucesso', false, 'erro', 'tipo_invalido');
   end if;
 
@@ -368,11 +385,24 @@ begin
     return jsonb_build_object('sucesso', false, 'erro', 'ja_registado');
   end if;
 
-  if p_tipo = 'saida' and not exists (
-    select 1 from public.registos_ponto
-    where funcionario_id = p_funcionario_id and data = v_data_local and tipo = 'entrada'
-  ) then
-    return jsonb_build_object('sucesso', false, 'erro', 'saida_sem_entrada');
+  select
+    bool_or(tipo = 'entrada'),
+    bool_or(tipo = 'saida_almoco'),
+    bool_or(tipo = 'retorno_almoco')
+  into v_tem_entrada, v_tem_saida_almoco, v_tem_retorno_almoco
+  from public.registos_ponto
+  where funcionario_id = p_funcionario_id and data = v_data_local;
+
+  if p_tipo in ('saida_almoco', 'saida') and not coalesce(v_tem_entrada, false) then
+    return jsonb_build_object('sucesso', false, 'erro', 'requer_entrada');
+  end if;
+
+  if p_tipo = 'retorno_almoco' and not coalesce(v_tem_saida_almoco, false) then
+    return jsonb_build_object('sucesso', false, 'erro', 'requer_saida_almoco');
+  end if;
+
+  if p_tipo = 'saida' and coalesce(v_tem_saida_almoco, false) and not coalesce(v_tem_retorno_almoco, false) then
+    return jsonb_build_object('sucesso', false, 'erro', 'almoco_em_curso');
   end if;
 
   if exists (
@@ -380,6 +410,20 @@ begin
     where funcionario_id = p_funcionario_id and data = v_data_local and tipo in ('falta', 'folga', 'ferias')
   ) then
     return jsonb_build_object('sucesso', false, 'erro', 'dia_marcado_falta_folga');
+  end if;
+
+  -- A pausa de almoço não tem horário configurado nem tolerância: regista-se
+  -- sempre de imediato, com estado normal.
+  if p_tipo in ('saida_almoco', 'retorno_almoco') then
+    insert into public.registos_ponto (funcionario_id, data, tipo, hora_registo, status)
+    values (p_funcionario_id, v_data_local, p_tipo, v_agora, 'normal');
+
+    return jsonb_build_object(
+      'sucesso', true,
+      'status', 'normal',
+      'hora', to_char(v_agora_lisboa, 'HH24:MI'),
+      'nome', v_funcionario.nome_completo
+    );
   end if;
 
   v_hora_prevista := case when p_tipo = 'entrada'
@@ -424,6 +468,61 @@ $$;
 revoke all on function public.registar_ponto_kiosk(uuid, text, ponto_tipo) from public;
 grant execute on function public.registar_ponto_kiosk(uuid, text, ponto_tipo) to anon, authenticated;
 grant execute on function public.verificar_senha_funcionario(uuid, text) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 10-B. FUNÇÃO RPC: obter_estado_ponto_hoje_kiosk
+--     Usada pelo ecrã pessoal do quiosque para saber, depois do código
+--     confirmado, qual é a ação seguinte a mostrar (entrada, saída almoço,
+--     volta almoço ou saída) sem expor dados a quem não sabe a senha.
+-- ---------------------------------------------------------------------------
+create or replace function public.obter_estado_ponto_hoje_kiosk(
+  p_funcionario_id uuid,
+  p_senha text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_hash        text;
+  v_data_local  date;
+  v_entrada          boolean;
+  v_saida_almoco      boolean;
+  v_retorno_almoco    boolean;
+  v_saida             boolean;
+  v_dia_fechado       boolean;
+begin
+  select senha_hash into v_hash from public.funcionarios where id = p_funcionario_id and ativo = true;
+  if v_hash is null or v_hash <> crypt(p_senha, v_hash) then
+    return jsonb_build_object('sucesso', false, 'erro', 'senha_incorreta');
+  end if;
+
+  v_data_local := (now() at time zone 'Europe/Lisbon')::date;
+
+  select
+    bool_or(tipo = 'entrada'),
+    bool_or(tipo = 'saida_almoco'),
+    bool_or(tipo = 'retorno_almoco'),
+    bool_or(tipo = 'saida'),
+    bool_or(tipo in ('falta', 'folga', 'ferias'))
+  into v_entrada, v_saida_almoco, v_retorno_almoco, v_saida, v_dia_fechado
+  from public.registos_ponto
+  where funcionario_id = p_funcionario_id and data = v_data_local;
+
+  return jsonb_build_object(
+    'sucesso', true,
+    'entrada', coalesce(v_entrada, false),
+    'saida_almoco', coalesce(v_saida_almoco, false),
+    'retorno_almoco', coalesce(v_retorno_almoco, false),
+    'saida', coalesce(v_saida, false),
+    'dia_fechado', coalesce(v_dia_fechado, false)
+  );
+end;
+$$;
+
+revoke all on function public.obter_estado_ponto_hoje_kiosk(uuid, text) from public;
+grant execute on function public.obter_estado_ponto_hoje_kiosk(uuid, text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 11. FUNÇÃO AUXILIAR: is_admin() — usada dentro das políticas de RLS
@@ -475,20 +574,27 @@ begin
   loop
     -- Remove registos incompatíveis com o novo tipo (ex.: mudar de "folga" para
     -- "entrada", ou de "falta" para "ferias") para não colidir com o trigger
-    -- trg_validar_registo_ponto, que impede entrada/saida coexistirem com
-    -- falta/folga/ferias.
-    if p_tipo in ('entrada', 'saida') then
+    -- trg_validar_registo_ponto, que impede entrada/saida/pausa de almoço
+    -- coexistirem com falta/folga/ferias.
+    if p_tipo in ('entrada', 'saida', 'saida_almoco', 'retorno_almoco') then
       delete from public.registos_ponto
       where funcionario_id = v_funcionario.id and data = p_data and tipo in ('falta', 'folga', 'ferias');
     else
       delete from public.registos_ponto
       where funcionario_id = v_funcionario.id and data = p_data
-        and tipo in ('entrada', 'saida', 'falta', 'folga', 'ferias') and tipo <> p_tipo;
+        and tipo in ('entrada', 'saida', 'saida_almoco', 'retorno_almoco', 'falta', 'folga', 'ferias')
+        and tipo <> p_tipo;
     end if;
 
     if p_tipo in ('falta', 'folga', 'ferias') then
       v_timestamp := null;
       v_status := null;
+    elsif p_tipo in ('saida_almoco', 'retorno_almoco') then
+      -- Sem horário de contrato configurado: usa sempre a hora indicada pelo
+      -- admin (com um valor razoável por omissão caso não seja indicada).
+      v_hora_final := coalesce(p_hora_customizada, case when p_tipo = 'saida_almoco' then '12:00' else '13:00' end);
+      v_timestamp := (p_data::text || ' ' || v_hora_final::text)::timestamp at time zone 'Europe/Lisbon';
+      v_status := 'forcado';
     else
       if p_usar_horario_padrao then
         v_hora_final := case when p_tipo = 'entrada'
@@ -775,6 +881,9 @@ grant select on public.vw_registos_detalhados to authenticated;
 --     Devolve uma linha por colaborador/dia dentro do período, já pronta
 --     para tabela/exportação Excel. Aceita uma lista de colaboradores (para
 --     o seletor por nome/foto com multi-seleção no painel); null = todos.
+--     total_horas já desconta a pausa de almoço quando esta foi registada
+--     por completo (saída e volta); se só uma das duas existir, ou nenhuma
+--     (almoço saltado), não há desconto.
 -- ---------------------------------------------------------------------------
 drop function if exists public.obter_relatorio_ponto(date, date, uuid);
 drop function if exists public.obter_relatorio_ponto(date, date, uuid[]);
@@ -785,15 +894,17 @@ create or replace function public.obter_relatorio_ponto(
   p_funcionario_ids uuid[] default null
 )
 returns table (
-  funcionario_id      uuid,
-  nome_completo       text,
-  numero_funcionario  text,
-  data                date,
-  hora_entrada        text,
-  hora_saida          text,
-  situacao            text,
-  status_registo      text,
-  total_horas         numeric
+  funcionario_id       uuid,
+  nome_completo        text,
+  numero_funcionario   text,
+  data                 date,
+  hora_entrada         text,
+  hora_saida_almoco    text,
+  hora_retorno_almoco  text,
+  hora_saida           text,
+  situacao             text,
+  status_registo       text,
+  total_horas          numeric
 )
 language sql
 stable
@@ -806,6 +917,8 @@ as $$
     f.numero_funcionario,
     d.data,
     to_char(e.hora_registo at time zone 'Europe/Lisbon', 'HH24:MI') as hora_entrada,
+    to_char(sa.hora_registo at time zone 'Europe/Lisbon', 'HH24:MI') as hora_saida_almoco,
+    to_char(ra.hora_registo at time zone 'Europe/Lisbon', 'HH24:MI') as hora_retorno_almoco,
     to_char(s.hora_registo at time zone 'Europe/Lisbon', 'HH24:MI') as hora_saida,
     case
       when fal.id is not null then 'Falta'
@@ -817,8 +930,15 @@ as $$
     end as situacao,
     coalesce(e.status::text, s.status::text) as status_registo,
     case
-      when e.hora_registo is not null and s.hora_registo is not null
-        then round((extract(epoch from (s.hora_registo - e.hora_registo)) / 3600.0)::numeric, 2)
+      when e.hora_registo is not null and s.hora_registo is not null then
+        round((
+          extract(epoch from (s.hora_registo - e.hora_registo))
+          - case
+              when sa.hora_registo is not null and ra.hora_registo is not null
+                then extract(epoch from (ra.hora_registo - sa.hora_registo))
+              else 0
+            end
+        ) / 3600.0, 2)
       else 0
     end as total_horas
   from public.funcionarios f
@@ -827,6 +947,10 @@ as $$
     on e.funcionario_id = f.id and e.data = d.data and e.tipo = 'entrada'
   left join public.registos_ponto s
     on s.funcionario_id = f.id and s.data = d.data and s.tipo = 'saida'
+  left join public.registos_ponto sa
+    on sa.funcionario_id = f.id and sa.data = d.data and sa.tipo = 'saida_almoco'
+  left join public.registos_ponto ra
+    on ra.funcionario_id = f.id and ra.data = d.data and ra.tipo = 'retorno_almoco'
   left join public.registos_ponto fal
     on fal.funcionario_id = f.id and fal.data = d.data and fal.tipo = 'falta'
   left join public.registos_ponto fol

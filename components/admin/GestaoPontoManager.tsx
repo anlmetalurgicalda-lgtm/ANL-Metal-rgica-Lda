@@ -5,12 +5,16 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { Funcionario, LinhaRelatorioPonto, PontoTipo } from "@/lib/types";
 import { dataLisboaISO } from "@/lib/timezone";
-import { User, LogIn, LogOut, CalendarOff, Ban, CheckCheck, RotateCcw, Palmtree } from "lucide-react";
+import { User, LogIn, LogOut, CalendarOff, Ban, CheckCheck, RotateCcw, Palmtree, Utensils, Coffee } from "lucide-react";
 import ForcarPontoModal from "./ForcarPontoModal";
+
+type TipoForcar = "entrada" | "saida_almoco" | "retorno_almoco" | "saida";
 
 interface LinhaGestao {
   funcionario: Funcionario;
   horaEntrada: string | null;
+  horaSaidaAlmoco: string | null;
+  horaRetornoAlmoco: string | null;
   horaSaida: string | null;
   situacao: string;
   statusRegisto: string | null;
@@ -40,7 +44,7 @@ export default function GestaoPontoManager() {
   const [data, setData] = useState(dataLisboaISO());
   const [aProcessar, setAProcessar] = useState(false);
   const [mensagem, setMensagem] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);
-  const [modalForcar, setModalForcar] = useState<"entrada" | "saida" | null>(null);
+  const [modalForcar, setModalForcar] = useState<TipoForcar | null>(null);
 
   async function carregar() {
     setACarregar(true);
@@ -59,6 +63,8 @@ export default function GestaoPontoManager() {
         return {
           funcionario: f,
           horaEntrada: r?.hora_entrada ?? null,
+          horaSaidaAlmoco: r?.hora_saida_almoco ?? null,
+          horaRetornoAlmoco: r?.hora_retorno_almoco ?? null,
           horaSaida: r?.hora_saida ?? null,
           situacao: r?.situacao ?? "Sem registo",
           statusRegisto: r?.status_registo ?? null,
@@ -90,7 +96,7 @@ export default function GestaoPontoManager() {
     );
   }
 
-  function pedirForcar(tipo: "entrada" | "saida") {
+  function pedirForcar(tipo: TipoForcar) {
     if (selecionados.size === 0) {
       setMensagem({ tipo: "erro", texto: "Selecione pelo menos um funcionário." });
       return;
@@ -125,8 +131,10 @@ export default function GestaoPontoManager() {
     }
 
     const rotulos: Record<PontoTipo, string> = {
-      entrada: "Entrada forçada",
-      saida: "Saída forçada",
+      entrada: "Clock In forçado",
+      saida_almoco: "Lunch Out forçado",
+      retorno_almoco: "Lunch In forçado",
+      saida: "Clock Out forçado",
       falta: "Falta marcada",
       folga: "Folga marcada",
       ferias: "Férias marcadas",
@@ -171,7 +179,9 @@ export default function GestaoPontoManager() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-900">Gestão de Ponto</h1>
-        <p className="text-sm text-slate-500">Forçar entradas/saídas, marcar faltas, folgas ou férias — individual ou em massa.</p>
+        <p className="text-sm text-slate-500">
+          Forçar Clock In/Out, pausa de almoço, faltas, folgas ou férias — individual ou em massa.
+        </p>
       </div>
 
       <div className="mb-6 flex flex-wrap items-end gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
@@ -190,18 +200,30 @@ export default function GestaoPontoManager() {
             onClick={() => pedirForcar("entrada")}
             className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
           >
-            <LogIn size={16} /> Forçar Entrada
+            <LogIn size={16} /> Forçar Clock In
+          </button>
+          <button
+            onClick={() => pedirForcar("saida_almoco")}
+            className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700"
+          >
+            <Utensils size={16} /> Forçar Lunch Out
+          </button>
+          <button
+            onClick={() => pedirForcar("retorno_almoco")}
+            className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white hover:bg-teal-700"
+          >
+            <Coffee size={16} /> Forçar Lunch In
           </button>
           <button
             onClick={() => pedirForcar("saida")}
             className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700"
           >
-            <LogOut size={16} /> Forçar Saída
+            <LogOut size={16} /> Forçar Clock Out
           </button>
           <button
             disabled={aProcessar}
             onClick={() => aplicar("falta", true, null)}
-            className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-60"
+            className="flex items-center gap-1.5 rounded-lg bg-amber-800 px-3 py-2 text-sm font-medium text-white hover:bg-amber-900 disabled:opacity-60"
           >
             <Ban size={16} /> Marcar Falta
           </button>
@@ -275,8 +297,10 @@ export default function GestaoPontoManager() {
                 <th className="w-10 px-4 py-2"></th>
                 <th className="px-4 py-2">Funcionário</th>
                 <th className="px-4 py-2">Horário previsto</th>
-                <th className="px-4 py-2">Entrada</th>
-                <th className="px-4 py-2">Saída</th>
+                <th className="px-4 py-2">Clock In</th>
+                <th className="px-4 py-2">Lunch Out</th>
+                <th className="px-4 py-2">Lunch In</th>
+                <th className="px-4 py-2">Clock Out</th>
                 <th className="px-4 py-2">Situação</th>
                 <th className="px-4 py-2 text-right">Horas</th>
               </tr>
@@ -284,14 +308,14 @@ export default function GestaoPontoManager() {
             <tbody className="divide-y divide-slate-100">
               {aCarregar && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     A carregar...
                   </td>
                 </tr>
               )}
               {!aCarregar && linhas.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     Nenhum funcionário ativo.
                   </td>
                 </tr>
@@ -337,6 +361,8 @@ export default function GestaoPontoManager() {
                         {l.funcionario.hora_entrada_padrao?.slice(0, 5)} – {l.funcionario.hora_saida_padrao?.slice(0, 5)}
                       </td>
                       <td className="px-4 py-2.5 text-slate-700">{l.horaEntrada ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{l.horaSaidaAlmoco ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{l.horaRetornoAlmoco ?? "—"}</td>
                       <td className="px-4 py-2.5 text-slate-700">{l.horaSaida ?? "—"}</td>
                       <td className="px-4 py-2.5">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CORES_SITUACAO[l.situacao]}`}>
